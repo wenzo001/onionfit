@@ -1,9 +1,6 @@
 <script setup lang="ts">
-// 出门/回家时间选择：点击唤起原生 time picker（iOS/Android 调系统滚轮，体验原生）
-// 已选时间可通过 × 一键清除
-
-import AppIcon from '@/components/AppIcon.vue'
-
+// 出门/回家时间：直接把原生 <input type=time> 画成墨线控件
+// （不用「按钮里套 input」——嵌套可交互元素既不合法，也让真实点击区小于 44pt）
 defineProps<{
   modelValue: string | null
   placeholder: string
@@ -17,86 +14,104 @@ function onChange(e: Event) {
   const input = e.target as HTMLInputElement
   emit('update:modelValue', input.value || null)
 }
-
-function clear() {
-  emit('update:modelValue', null)
-}
 </script>
 
 <template>
   <div class="time-field">
-    <button
-      type="button"
-      class="time-btn"
-    >
-      <span class="time-value">{{ modelValue ?? placeholder }}</span>
+    <label class="time-box">
+      <span class="sr">{{ placeholder }}</span>
       <input
         type="time"
-        class="time-native"
+        class="time-input num"
+        :class="{ empty: !modelValue }"
         :value="modelValue ?? ''"
+        :aria-label="placeholder"
         @change="onChange"
       />
-    </button>
+    </label>
     <button
       v-if="modelValue"
       type="button"
       class="clear-btn"
       aria-label="清除时间"
-      @click.stop="clear"
+      @click="emit('update:modelValue', null)"
     >
-      <AppIcon
-        icon="fluent:dismiss-circle-24-regular"
-        :size="16"
-      />
+      ×
     </button>
   </div>
 </template>
 
 <style scoped lang="scss">
+@use '@/styles/tokens' as *;
+
 .time-field {
-  position: relative;
   display: inline-flex;
   align-items: center;
+  gap: 2px;
 }
 
-.time-btn {
-  position: relative;
-  min-width: 88px;
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-  font-size: 15px;
-  font-weight: 500;
-  text-align: center;
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
 
-  &:active {
-    background: rgba(255, 255, 255, 0.2);
+.time-box {
+  display: inline-flex;
+  border: var(--sw) solid var(--ink);
+  border-radius: var(--r);
+  background: var(--card);
+
+  &:focus-within {
+    box-shadow: 2px 2px 0 var(--ink);
   }
 }
 
-.time-value {
-  pointer-events: none;
+/* 原生控件自带滚轮入口，这里只保证外观与 44pt 命中区 */
+.time-input {
+  min-width: 104px;
+  min-height: 44px;
+  padding: 6px 10px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-num);
+  font-size: 15px;
+  font-weight: #{$numeral-weight};
+
+  &.empty {
+    color: rgba(0, 0, 0, 0.45);
+  }
+
+  &::-webkit-calendar-picker-indicator {
+    opacity: 0.55;
+  }
 }
 
-.time-native {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
+.time-box:has(.time-input.empty) {
+  border-style: dashed;
+  background: var(--paper);
 }
 
 .clear-btn {
-  position: absolute;
-  right: 6px;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
-  padding: 4px;
-  color: rgba(255, 255, 255, 0.68);
-  z-index: 1;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 20px;
+  font-weight: #{$numeral-weight};
+  line-height: 1;
 
   &:active {
-    color: rgba(255, 255, 255, 0.9);
+    transform: none;
+    color: var(--ink);
   }
 }
 </style>

@@ -250,13 +250,14 @@ export interface SafetyReport {
   forcedDemands: Partial<DemandVector>
 }
 
-/** 时段建议 */
-export interface PeriodRecommendation {
+/** 时段建议（一天三段，早/午/晚）：ScheduleEngine 产出，界面按段呈现 */
+export interface DayPart {
   phase: 'morning' | 'noon' | 'evening'
   label: string
-  /** 时长/描述 */
+  startHour: number
+  endHour: number
+  avgTemp: number
   advice: string
-  noteCode?: ReasonCode
 }
 
 export interface TimelineEvent {
@@ -264,6 +265,24 @@ export interface TimelineEvent {
   action: 'ADD' | 'REMOVE'
   role: LayerRole
   layerLabel: string
+}
+
+/** 全天事实快照：界面标注需求维度单位用（只是已算出的数字透传，不参与任何决策） */
+export interface RecommendationFacts {
+  dayMinC: number
+  dayMaxC: number
+  /** 昼夜温差 */
+  dayRangeC: number
+  windMaxMs: number
+  /** 全天累计雨量 mm */
+  dayRainMm: number
+  /** 全天最大 UV，-1 = 未知 */
+  dayUvMax: number
+  /** 设计时刻（全天最需保暖的那个小时）的气温 */
+  designHourTempC: number
+  /** 活动带来的雨暴露系数 0-1，0 = 全程室内 */
+  rainExposure: number
+  hasHourly: boolean
 }
 
 /** 推荐结论（planner 唯一输出，UI 消费） */
@@ -298,7 +317,9 @@ export interface OutfitRecommendation {
   nowOutfit: OutfitAssembly
   wornNowCount: number
   wornNowRoles: LayerRole[]
-  periods: PeriodRecommendation[]
+  /** 全天事实（界面标注单位用） */
+  facts: RecommendationFacts
+  periods: DayPart[]
   timeline: TimelineEvent[]
   accessories: Accessory[]
   /** 今天出门带不带伞 */
@@ -306,9 +327,4 @@ export interface OutfitRecommendation {
   safety: SafetyReport
   dayScore: number
   reasons: ReasonCode[]
-  /** 明日一句话（07:30 计算） */
-  tomorrow?: {
-    headline: string
-    detail: string
-  }
 }

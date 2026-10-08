@@ -1,37 +1,102 @@
-// ===== OnionFit 设计令牌 =====
-// 色板
-$color-base: #12142e;       // 应用底色
-$color-glass: rgba(255, 255, 255, 0.14);
-$color-glass-strong: rgba(255, 255, 255, 0.22);
-$color-border: rgba(255, 255, 255, 0.24);
+// ===== OnionFit 设计令牌 · 日系漫画分镜 / 手绘墨线 =====
+// 颜色即语义：换一个颜色就是换一个含义，不做装饰用色。
+// 唯一来源是设计交付包（onionfit-design-kit.html §01），此处与其一一对应。
 
-// 文本三档（透明度按 iOS label 语义层级，适配深色磨砂背景）
-$text-primary: #ffffff;
-$text-secondary: rgba(255, 255, 255, 0.8);
-$text-tertiary: rgba(255, 255, 255, 0.65);
+// ---------- 色板 ----------
+$paper: #fff5e1; // 全局背景，奶油纸底，不用纯白
+$card: #ffffff; // 承载结论的容器
+$ink: #000000; // 所有描边 + 正文，纯黑无灰阶
+$ink-2: #1a1a1a; // 正文墨色（略软，长文可读）
+$orange: #ff6b35; // 此刻的行动答案，永远最显眼
+$blue: #5b7fff; // 降水与寒冷相关的一切
+$blue-lite: #a8c7ff; // 防护层图标主色
+$yellow: #ffd600; // 需要解释、容易被质疑的结论
+$pink: #ff4d8d; // 强制抬升的需求 + 「现在」指针
+$mint: #00c2a8; // 贴身层 + 数据可信
+$warn: #c2410c; // 正文里的提醒强调
+$warn-deep: #a8360a; // 提醒强调 · 压在保暖层底色上（#C2410C 在 #FFE9C7 上只有 4.37）
 
-// 文字阴影：模拟 iOS vibrancy，让白字在彩色渐变上更立体可读
-$text-shadow-vibrant: 0 1px 3px rgba(0, 0, 0, 0.18);
+// 层角色分区底色（与服装图鉴一致，用户在图鉴学到的颜色到主屏不用重学）
+$layer-protection: #e3edff;
+$layer-insulation: #ffe9c7;
+$layer-base: #ffffff;
+$layer-accessory: #ffe4ee;
 
-// 三层专属色
-$layer-base: #8fd3ff;     // 内层 冷蓝
-$layer-insulation: #ffd28f; // 中层 暖黄
-$layer-protection: #a8e6b0; // 外层 绿
+// ---------- 形状 ----------
+$radius: 8px; // 卡片圆角，漫画分格
+$radius-pill: 100px; // 胶囊：标签、徽章、Tab
+$stroke: 3px; // 所有描边
+$shadow: 4px 4px 0 $ink; // 硬阴影，绝不用模糊投影
+$shadow-lg: 5px 5px 0 $ink; // 桌面端强调卡
+$shadow-blur-allowed: false;
 
-// 需求条稳定配色
+// ---------- 排版 ----------
+$font-cn: (
+  "PingFang SC",
+  "Noto Sans SC",
+  "Microsoft YaHei",
+  system-ui,
+  sans-serif
+) !default;
+// Outfit 未随包内置（断网可用是硬约束），缺失时落系统无衬线，字重与字距仍生效
+$font-num: (
+  "Outfit",
+  -apple-system,
+  "Segoe UI",
+  system-ui,
+  sans-serif
+) !default;
+
+$body-size: 14px;
+$body-line: 1.7;
+$title-weight: 900;
+$numeral-weight: 800;
+
+// ---------- 间距 ----------
+$sp: 8px;
+$gap-card: 14px; // 卡片间距 12–16
+$page-pad: 16px;
+
+// ---------- 图标 ----------
+$icon-grid: 72; // 图标绘制网格（尺寸→描边映射在 GarmentIcon.ts 按渲染尺寸处理）
+
+// 需求维度配色
+// 六维各自独立成义，色值只服务辨识，不表达强弱
 $demand-colors: (
-  'warmth': #ffb07a,
-  'wind': #9fe8ff,
-  'rain': #8fb6ff,
-  'breathability': #a8e6b0,
-  'solar': #ffd76e,
-  'removable': #d7b3ff
+  WARMTH: $orange,
+  WIND: $blue,
+  RAIN: $blue,
+  BREATHABILITY: $mint,
+  SOLAR: $yellow,
+  REMOVABLE: $pink
 );
 
-// 圆角
-$radius-card: 28px;
-$radius-chip: 100px;
+// 字色专用深一档：饱和度高的彩底在白卡上写数字达不到 AA 4.5（橘 2.84 / 薄荷 2.26），
+// 所以图形仍用原色，文字用这一组深色（同族可辨认，实测全部 ≥4.5）
+$demand-ink: (
+  WARMTH: #c2410c,
+  WIND: #2f4fc9,
+  RAIN: #2f4fc9,
+  BREATHABILITY: #00775f,
+  SOLAR: #c2410c,
+  REMOVABLE: #b01e58
+);
 
-// 字体栈（iOS 观感）
-$font-stack: -apple-system, 'SF Pro Text', 'PingFang SC', 'Helvetica Neue',
-  'Microsoft YaHei', sans-serif;
+// 层角色 → 行底色 / 图标默认填充
+$layer-bg: (
+  PROTECTION: $layer-protection,
+  INSULATION: $layer-insulation,
+  BASE: $layer-base,
+  ACCESSORY: $layer-accessory
+);
+
+$layer-label: (
+  PROTECTION: '防护层',
+  INSULATION: '保暖层',
+  BASE: '贴身层',
+  ACCESSORY: '配饰'
+);
+
+// 断点：390 移动 / 834 平板 / 1440 桌面
+$bp-tablet: 760px;
+$bp-desktop: 1180px;

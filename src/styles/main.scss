@@ -1,50 +1,105 @@
+@use 'sass:map';
 @use './tokens' as *;
-@use './glass';
 
-// ===== 基础重置与 iOS 原生感 =====
-html,
+// ===== 漫画分镜风基座：纸底 + 白卡 + 3px 墨线 + 硬阴影 =====
+// 令牌同时以 CSS 自定义属性暴露，组件用 var(--orange) 即可，避免各处硬编码
+:root {
+  --paper: #{$paper};
+  --card: #{$card};
+  --ink: #{$ink};
+  --ink-2: #{$ink-2};
+  --orange: #{$orange};
+  --blue: #{$blue};
+  --blue-lite: #{$blue-lite};
+  --yellow: #{$yellow};
+  --pink: #{$pink};
+  --mint: #{$mint};
+  --warn: #{$warn};
+  --warn-deep: #{$warn-deep};
+
+  --layer-protection: #{$layer-protection};
+  --layer-insulation: #{$layer-insulation};
+  --layer-base: #{$layer-base};
+  --layer-accessory: #{$layer-accessory};
+
+  --r: #{$radius};
+  --r-pill: #{$radius-pill};
+  --sw: #{$stroke};
+  --shadow: #{$shadow};
+  --shadow-lg: #{$shadow-lg};
+  --sp: #{$sp};
+
+  --font-cn: 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-num: 'Outfit', -apple-system, 'Segoe UI', system-ui, sans-serif;
+
+  // 六维需求配色（图形用原色，文字用深一档，见 _tokens 注释）
+  --d-warmth: #{$orange};
+  --d-wind: #{$blue};
+  --d-rain: #{$blue};
+  --d-breathability: #{$mint};
+  --d-solar: #{$yellow};
+  --d-removable: #{$pink};
+  --dt-warmth: #{map.get($demand-ink, WARMTH)};
+  --dt-wind: #{map.get($demand-ink, WIND)};
+  --dt-rain: #{map.get($demand-ink, RAIN)};
+  --dt-breathability: #{map.get($demand-ink, BREATHABILITY)};
+  --dt-solar: #{map.get($demand-ink, SOLAR)};
+  --dt-removable: #{map.get($demand-ink, REMOVABLE)};
+
+  // 数字用等宽字形对齐，避免结论变化时跳动
+  --tnum: tabular-nums;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   padding: 0;
-  height: 100%;
-}
-
-body {
-  font-family: $font-stack;
-  color: $text-primary;
-  background: $color-base;
-  // 移动端原生感
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  min-height: 100%;
+  background: var(--paper);
+  color: var(--ink-2);
+  font-family: var(--font-cn);
+  font-size: #{$body-size};
+  line-height: #{$body-line};
+  // 类原生：无双击延迟、无长按选词、无高亮闪块
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
+  -webkit-font-smoothing: antialiased;
   user-select: none;
   overflow-x: hidden;
   overscroll-behavior-y: none;
-  // 去双击缩放延迟（配合 viewport user-scalable=no，点击零延迟）
   touch-action: manipulation;
-}
-
-// 原生 App 不显示可见滚动条（iOS HIG）；
-// 横向滚动条在移动端尤其突兀 —— 统一隐藏，可滑动内容靠渐变蒙层提示
-::-webkit-scrollbar {
-  display: none;
-}
-
-* {
-  scrollbar-width: none; // Firefox
 }
 
 #app {
   min-height: 100%;
-  // 通过 innerHeight 动态适配 iOS 地址栏（HomeView 中处理）
+  background: var(--paper);
 }
 
 h1,
 h2,
 h3,
+h4,
 p {
   margin: 0;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  line-height: 1.25;
+}
+
+// 数字与时刻：Outfit ExtraBold 圆体，字距收紧，像漫画里的拟声数字
+.num,
+.numeral {
+  font-family: var(--font-num);
+  font-weight: #{$numeral-weight};
+  font-variant-numeric: var(--tnum);
+  letter-spacing: -0.02em;
 }
 
 button {
@@ -53,16 +108,17 @@ button {
   background: none;
   color: inherit;
   cursor: pointer;
-  -webkit-appearance: none;
   appearance: none;
-  // 按压即时反馈（HIG：按下透明度微降，松手恢复）；组合声明避免被局部 transition 整体覆盖
+  -webkit-appearance: none;
+  // 漫画风的按压反馈：整块位移贴合硬阴影方向
   transition:
-    opacity 0.12s ease,
-    background 0.2s ease,
-    transform 0.12s ease;
+    transform 0.1s ease,
+    box-shadow 0.1s ease,
+    background 0.18s ease;
 
   &:active {
-    opacity: 0.75;
+    transform: translate(2px, 2px);
+    box-shadow: none;
   }
 }
 
@@ -70,16 +126,91 @@ input {
   font-family: inherit;
 }
 
-// 可滚动容器回弹效果
+// 墨线描边统一 3px 纯黑，无灰阶
+.ink-edge {
+  border: var(--sw) solid var(--ink);
+}
+
+.card {
+  background: var(--card);
+  border: var(--sw) solid var(--ink);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+}
+
+// 可滚动容器：隐藏滚动条（原生 App 不显示可见滚动条），横向内容靠边缘留白提示
 .touch-scroll {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
 }
 
-// 安全区工具类
+::-webkit-scrollbar {
+  display: none;
+}
+
+* {
+  scrollbar-width: none;
+}
+
 .safe-top {
   padding-top: env(safe-area-inset-top, 0px);
 }
+
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+// ===== 屏幕骨架：移动端单列 → 平板双列 → 桌面三栏（导航在 App 外壳） =====
+.screen {
+  display: grid;
+  // 1fr 的默认 min 是 auto，横向滚动内容会把列撑破 → 一律 minmax(0,1fr)
+  grid-template-columns: minmax(0, 1fr);
+  gap: #{$gap-card};
+  padding: #{$sp} #{$page-pad} #{$sp * 4};
+  align-items: start;
+}
+
+.screen > * {
+  min-width: 0;
+}
+
+// 列内还有横向滚动/多列控件时，flex item 的 min-width:auto 会把整列撑破
+.col > * {
+  min-width: 0;
+}
+
+// 「依据」列只在桌面出现（窄屏走 /onion 下钻屏）
+// 具体显隐写在组件里：组件 scoped 样式注入在后，全局规则会被它盖掉
+
+@media (min-width: $bp-tablet) {
+  .screen {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: #{$sp * 2} #{$sp * 3} #{$sp * 5};
+  }
+
+  .span-all {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: $bp-desktop) {
+  .screen {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr) minmax(0, 0.95fr);
+    gap: #{$sp * 2};
+  }
+
+  .span-all {
+    grid-column: auto;
+  }
+}
+
+// 视觉无障碍：动效关掉时，硬阴影与位移仍保留，只去过渡
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }

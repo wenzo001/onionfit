@@ -21,8 +21,9 @@ export default defineConfig(() => ({
         lang: 'zh-CN',
         display: 'standalone',
         orientation: 'portrait',
-        theme_color: '#12142E',
-        background_color: '#12142E',
+        // 纸底奶油色 + 墨线，与设计令牌的 --paper / --ink 一致
+        theme_color: '#FFF5E1',
+        background_color: '#FFF5E1',
         icons: [
           { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'pwa-512.png', sizes: '512x512', type: 'image/png' },

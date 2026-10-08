@@ -43,8 +43,23 @@ export function assembleOutfit(
   })
 
   const assembly = computeAssembly(chosen)
+  // 槽位产生原因透传到层：界面「这层为什么存在」读的是真实决策依据，不是猜测
+  attachSlotReasons(assembly, slots)
   const score = scoreAssembly(assembly, demand)
   return { assembly, chosen, score, relaxedCodes: [] }
+}
+
+/** 层 → 槽位 reasonCode（同角色多槽取第一个非空；贴身层恒在） */
+function attachSlotReasons(assembly: OutfitAssembly, slots: LayerSlot[]): void {
+  const byRole = new Map<string, string>()
+  for (const slot of slots) {
+    if (byRole.has(slot.role)) continue
+    const code = slot.reasonCodes[0]
+    if (code) byRole.set(slot.role, code)
+  }
+  assembly.layers.forEach((l) => {
+    l.noteCode = byRole.get(l.role) ?? (l.role === 'BASE' ? 'ALWAYS_ON' : undefined)
+  })
 }
 
 /** 槽位硬属性检查（拉伸到候选挑选） */

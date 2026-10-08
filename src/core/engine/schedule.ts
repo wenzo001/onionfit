@@ -1,19 +1,8 @@
 // ScheduleEngine：早/午/晚分段（按太阳事件）+ 加/减层时间线（ADD/REMOVE ≤6）
 
-import type { TimelineEvent, WeatherKind } from '../types'
+import type { DayPart, OutfitAssembly, TimelineEvent } from '../types'
 import type { WeatherContext } from './weather'
 import type { HourlyThermal } from './thermal'
-import type { OutfitAssembly } from '../types'
-
-export interface DayPart {
-  phase: 'morning' | 'noon' | 'evening'
-  label: string
-  /** 开始整点 */
-  startHour: number
-  endHour: number
-  avgTemp: number
-  advice: string
-}
 
 /** 按太阳事件切分早午晚 */
 export function buildDayParts(
@@ -120,21 +109,4 @@ export function buildTimeline(
 
 function layerName(names: string): string {
   return names.split('/')[0] || '中间层'
-}
-
-/** 明日一句话：对比明日与今夜的温差与降水（在 planner 组装文案） */
-export function tomorrowSummary(
-  today: WeatherContext,
-  tomorrowDay: { minC: number; maxC: number; kind: WeatherKind; rainChance: number },
-): { headline: string; detail: string } {
-  const tDiff = tomorrowDay.maxC - tomorrowDay.minC
-  const change = tomorrowDay.minC - today.dayMinC
-  const parts: string[] = []
-  if (Math.abs(change) >= 3) parts.push(change > 0 ? `最低温回升 ${Math.round(change)}℃` : `最低温下降 ${Math.abs(Math.round(change))}℃`)
-  if (tDiff >= 10) parts.push(`昼夜温差 ${Math.round(tDiff)}℃`)
-  if (tomorrowDay.rainChance >= 30) parts.push(`降水概率 ${Math.round(tomorrowDay.rainChance)}%`)
-  if (tomorrowDay.kind === 'rain' || tomorrowDay.kind === 'thunder') parts.push('记得带伞')
-  if (tomorrowDay.kind === 'snow') parts.push('注意防寒防滑')
-  const headline = parts.length ? parts.join('，') : `全天 ${Math.round(tomorrowDay.maxC)}°C 左右，变化不大`
-  return { headline, detail: '明日 07:30 按通勤场景测算' }
 }

@@ -18,7 +18,7 @@ import { buildDemandVector } from './requirement'
 import { planLayerSlots } from './layering'
 import { matchCandidates } from './matching'
 import { assembleOutfit } from './scoring'
-import { buildDayParts, buildTimeline, tomorrowSummary } from './schedule'
+import { buildDayParts, buildTimeline } from './schedule'
 import { accessoriesOf } from './accessories'
 import { assessUmbrella } from './umbrella'
 import { round1 } from './psychrometrics'
@@ -60,6 +60,7 @@ export function plan({ report, settings, now = new Date() }: PlanInput): OutfitR
 
   const periods = buildDayParts(ctx, hourlyThermal, settings.outTime, settings.homeTime)
   const timeline = buildTimeline(ctx, hourlyThermal, dayOutfit)
+  // 明日一句话由 presentation 按 daily[1] 与今日事实对比生成（引擎不再拼文案）
   const accessories = accessoriesOf(ctx, demand.vector, person)
   const umbrella = assessUmbrella({
     ctx,
@@ -67,15 +68,6 @@ export function plan({ report, settings, now = new Date() }: PlanInput): OutfitR
     activity: settings.activity,
     settings,
     now,
-  })
-
-  // 明日（day 2）
-  const t2 = report.daily[1]
-  const tomorrow = tomorrowSummary(ctx, {
-    minC: t2.minC,
-    maxC: t2.maxC,
-    kind: t2.dayKind,
-    rainChance: t2.rainChancePercent,
   })
 
   const wornNow = nowOutfit.layers.filter((l) => l.active)
@@ -103,6 +95,17 @@ export function plan({ report, settings, now = new Date() }: PlanInput): OutfitR
     nowOutfit,
     wornNowCount: wornNow.length,
     wornNowRoles: wornNow.map((l) => l.role),
+    facts: {
+      dayMinC: ctx.dayMinC,
+      dayMaxC: ctx.dayMaxC,
+      dayRangeC: ctx.dayRangeC,
+      windMaxMs: ctx.windMaxMs,
+      dayRainMm: ctx.dayRainMm,
+      dayUvMax: ctx.dayUvMax,
+      designHourTempC: designHour.temperatureC,
+      rainExposure: activity.rainExposure,
+      hasHourly: ctx.hasHourly,
+    },
     periods,
     timeline,
     accessories,
@@ -110,7 +113,6 @@ export function plan({ report, settings, now = new Date() }: PlanInput): OutfitR
     safety,
     dayScore: score,
     reasons: flattenReasons(demand.reasons),
-    tomorrow,
   }
 }
 

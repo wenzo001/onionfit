@@ -1,9 +1,11 @@
 <script setup lang="ts">
-// 选城页：中文搜索（防抖 300ms）+ 一键定位 + 结果列表
+// 选城页：中文搜索（防抖 300ms）+ 一键定位
+// 定位结果把「精度来源」写回 store（GPS / IP 兜底），带伞与边界状态都读这一位
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDebounceFn, useVibrate } from '@vueuse/core'
 import AppIcon from '@/components/AppIcon.vue'
+import InkCard from '@/components/InkCard.vue'
 import { searchCities } from '@/data/geo/citySearch'
 import { CityService } from '@/services/cityService'
 import { useWeatherStore } from '@/stores/weather'
@@ -44,9 +46,9 @@ async function doSearch() {
 
 const debouncedSearch = useDebounceFn(doSearch, 300)
 
-async function pick(city: CityInfo) {
+async function pick(city: CityInfo, source: 'gps' | 'ip' | 'manual' = 'manual') {
   vibrate()
-  await weather.selectCity(city)
+  await weather.selectCity(city, source)
   goBack()
 }
 
@@ -59,18 +61,15 @@ async function locate() {
     locatingError.value = outcome.error
     return
   }
-  await pick(outcome.city)
+  await pick(outcome.city, outcome.viaIpFallback ? 'ip' : 'gps')
 }
 
-/** 从选城页返回：仅当确实从首页导航而来时 back，深链接/刷新进入时回首页 */
+/** 从选城页返回：仅当确实从应用内导航而来时 back，深链接/刷新进入时回首页 */
 function goBack() {
   const back = router.options.history.state.back as string | null | undefined
   const isFromApp = Boolean(back && back !== 'about:blank' && back.startsWith(location.origin))
-  if (isFromApp) {
-    router.back()
-  } else {
-    router.replace('/')
-  }
+  if (isFromApp) router.back()
+  else router.replace({ name: 'day' })
 }
 </script>
 
@@ -85,14 +84,14 @@ function goBack() {
       >
         <AppIcon
           icon="fluent:chevron-left-28-regular"
-          :size="24"
+          :size="22"
         />
       </button>
       <h1 class="title">选择城市</h1>
       <div class="header-spacer" />
     </header>
 
-    <div class="search-box">
+    <InkCard class="search-box">
       <AppIcon
         icon="fluent:search-24-regular"
         :size="18"
@@ -117,7 +116,7 @@ function goBack() {
           :size="18"
         />
       </button>
-    </div>
+    </InkCard>
 
     <button
       type="button"
@@ -134,20 +133,20 @@ function goBack() {
 
     <p
       v-if="locatingError"
-      class="locate-error"
+      class="notice warn"
     >
       {{ locatingError }}
     </p>
     <p
       v-if="searchError"
-      class="locate-error"
+      class="notice warn"
     >
       {{ searchError }}
     </p>
 
     <div
       v-if="searching"
-      class="status-line"
+      class="notice"
     >
       搜索中…
     </div>
@@ -160,28 +159,24 @@ function goBack() {
         v-for="c in results"
         :key="c.id"
         class="result-item"
-        @click="pick(c)"
       >
-        <div class="result-main">
-          <div class="result-name">{{ c.name }}</div>
-          <div
+        <button
+          type="button"
+          class="result-btn"
+          @click="pick(c)"
+        >
+          <span class="result-name">{{ c.name }}</span>
+          <span
             v-if="c.admin1 || c.country"
             class="result-sub"
-          >
-            {{ [c.admin1, c.country].filter(Boolean).join(' · ') }}
-          </div>
-        </div>
-        <AppIcon
-          icon="fluent:chevron-right-24-regular"
-          :size="16"
-          class="result-arrow"
-        />
+          >{{ [c.admin1, c.country].filter(Boolean).join(' · ') }}</span>
+        </button>
       </li>
     </ul>
 
     <div
       v-else-if="hasSearched"
-      class="status-line"
+      class="notice"
     >
       未找到相关城市
     </div>
@@ -189,70 +184,77 @@ function goBack() {
 </template>
 
 <style scoped lang="scss">
+@use '@/styles/tokens' as *;
+
 .picker-page {
   min-height: 100vh;
-  background: #12142e;
-  padding: env(safe-area-inset-top, 12px) 0 env(safe-area-inset-bottom, 12px);
+  padding: calc(env(safe-area-inset-top, 12px) + #{$sp}) #{$page-pad} calc(env(safe-area-inset-bottom, 12px) + #{$sp * 3});
+  background: var(--paper);
 }
 
 .picker-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 20px;
+  margin-bottom: #{$sp};
 }
 
 .back-btn {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
+  border: var(--sw) solid var(--ink);
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 2px 2px 0 var(--ink);
 }
 
 .title {
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 17px;
+  font-weight: #{$title-weight};
+  color: var(--ink);
 }
 
 .header-spacer {
-  width: 40px;
+  width: 44px;
 }
 
 .search-box {
-  position: relative;
-  margin: 16px 20px 12px;
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 14px;
-  padding: 0 12px;
+  gap: 8px;
+  padding: 0 #{$sp};
+  min-height: 48px;
 }
 
 .search-icon {
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba(0, 0, 0, 0.55);
 }
 
 .search-input {
   flex: 1;
+  min-width: 0;
   background: none;
   border: none;
   outline: none;
-  color: #fff;
+  color: var(--ink);
   font-size: 16px;
-  padding: 12px 10px;
+  font-weight: 700;
 
   &::placeholder {
-    color: rgba(255, 255, 255, 0.55);
+    color: rgba(0, 0, 0, 0.45);
+    font-weight: 400;
   }
 }
 
 .clear-btn {
-  color: rgba(255, 255, 255, 0.65);
   display: grid;
   place-items: center;
+  width: 32px;
+  height: 32px;
+  color: rgba(0, 0, 0, 0.55);
 }
 
 .locate-btn {
@@ -260,68 +262,66 @@ function goBack() {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  margin: 12px 20px;
-  width: calc(100% - 40px);
-  padding: 13px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.14);
-  color: #fff;
-  font-size: 15px;
-  font-weight: 500;
-
-  &:active {
-    background: rgba(255, 255, 255, 0.24);
-  }
+  width: 100%;
+  min-height: 48px;
+  margin-top: #{$sp * 1.5};
+  border: var(--sw) solid var(--ink);
+  border-radius: var(--r);
+  background: var(--orange);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: #{$title-weight};
+  box-shadow: var(--shadow);
 
   &:disabled {
     opacity: 0.6;
+    box-shadow: none;
   }
 }
 
-.locate-error {
-  margin: 0 20px 8px;
-  font-size: 13px;
-  color: #ffc4bd;
+.notice {
+  margin-top: #{$sp};
+  font-size: 12.5px;
+  color: rgba(0, 0, 0, 0.6);
+  text-align: center;
 }
 
-.status-line {
-  padding: 30px 20px;
-  text-align: center;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.72);
+.notice.warn {
+  color: #{$warn};
+  font-weight: 700;
 }
 
 .result-list {
   list-style: none;
-  margin: 8px 20px 0;
+  margin: #{$sp * 1.5} 0 0;
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.result-item {
+.result-btn {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 4px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-
-  &:active {
-    background: rgba(255, 255, 255, 0.06);
-    border-radius: 10px;
-  }
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px #{$sp * 1.5};
+  border: var(--sw) solid var(--ink);
+  border-radius: var(--r);
+  background: var(--card);
+  text-align: left;
 }
 
 .result-name {
-  font-size: 16px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: #{$title-weight};
+  color: var(--ink);
 }
 
 .result-sub {
-  margin-top: 2px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.68);
-}
-
-.result-arrow {
-  color: rgba(255, 255, 255, 0.55);
+  font-size: 11.5px;
+  color: rgba(0, 0, 0, 0.62);
 }
 </style>
