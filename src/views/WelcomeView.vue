@@ -8,7 +8,6 @@ import BadgePill from '@/components/BadgePill.vue'
 import SectionTitle from '@/components/SectionTitle.vue'
 import SegmentedPicker from '@/components/SegmentedPicker.vue'
 import TimePicker from '@/components/TimePicker.vue'
-import PageSkeleton from '@/components/PageSkeleton.vue'
 import { MASCOT_ICON } from '@/components/garments'
 import { usePlan } from '@/composables/usePlan'
 import { useSettingsStore } from '@/stores/settings'
@@ -22,6 +21,8 @@ const store = useSettingsStore()
 weather.bootstrap()
 
 const rec = computed(() => recommendation.value)
+/** 预览块要一个"有结论"的窄化凭据，没有数据时改出走法而不是空骨架 */
+const data = computed(() => (rec.value ? { rec: rec.value } : null))
 const names = computed(() =>
   rec.value ? orderLayers(rec.value.dayOutfit.layers).map((l) => layerTitle(l)).join(' · ') : '',
 )
@@ -34,12 +35,7 @@ function enter() {
 
 <template>
   <div class="page">
-    <PageSkeleton v-if="!rec" />
-
-    <div
-      v-else
-      class="screen"
-    >
+    <div class="screen">
       <section class="col col-wide">
         <InkCard
           class="greet"
@@ -57,7 +53,10 @@ function enter() {
         </InkCard>
       </section>
 
-      <section class="col">
+      <section
+        v-if="data"
+        class="col"
+      >
         <SectionTitle
           title="按默认值算出来的今天"
           sub="还没改任何设置"
@@ -65,15 +64,38 @@ function enter() {
         <InkCard class="preview">
           <div class="p-head">
             <h1 class="headline">
-              此刻穿<span class="num">{{ rec.wornNowCount }}</span>层
+              此刻穿<span class="num">{{ data.rec.wornNowCount }}</span>层
             </h1>
             <BadgePill tone="yellow">默认值</BadgePill>
           </div>
           <p class="names">{{ names }}</p>
           <p class="umb">
-            {{ umbrellaHeadline(rec.umbrella) }} ·
-            <b class="num">{{ rec.umbrella.probability }}%</b>
+            {{ umbrellaHeadline(data.rec.umbrella) }} ·
+            <b class="num">{{ data.rec.umbrella.probability }}%</b>
           </p>
+        </InkCard>
+      </section>
+
+      <!-- 连不上也不编一份预览出来：直说，并给一条出路 -->
+      <section
+        v-else
+        class="col"
+      >
+        <InkCard
+          tone="paper"
+          class="preview"
+        >
+          <b class="nodata">还没拿到{{ weather.city.name }}的天气</b>
+          <p class="names">
+            没数据就不给结论。可以先选个城市，或者先进去看今天的状态条怎么说。
+          </p>
+          <button
+            type="button"
+            class="go"
+            @click="router.push({ name: 'city' })"
+          >
+            手动选城市 →
+          </button>
         </InkCard>
       </section>
 
@@ -173,6 +195,13 @@ function enter() {
 
 .preview {
   padding: #{$sp * 1.5};
+}
+
+.nodata {
+  display: block;
+  font-size: 15px;
+  font-weight: #{$title-weight};
+  color: var(--ink);
 }
 
 .p-head {
