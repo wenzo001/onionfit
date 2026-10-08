@@ -44,6 +44,10 @@ jobs:
       - name: 安装依赖
         run: pnpm install --frozen-lockfile
 
+      # 算法层单测先跑：build 只做类型检查 + 打包，不会发现「结论算错了」
+      - name: 单测
+        run: pnpm test
+
       - name: 构建
         run: pnpm build
         env:

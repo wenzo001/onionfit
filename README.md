@@ -14,7 +14,9 @@
 - **个性化**：人群（儿童/成人/老人）、冷热偏好（怕冷/标准/怕热）、活动（居家/办公/步行/骑行/跑步等）、出门/回家时间
 - **配置即存**：所有用户配置持久化在本地，重新打开沿用上次选择
 - **PWA**：可安装到主屏，天气快照离线可看
-- **下拉刷新 / 触感反馈 / iOS 风格交互**
+- **结论随时刻自己走**：页面挂着不动，「现在几点」「正穿 / 带着」与通勤段也会跟着时钟更新
+- **8 个边界状态**：离线快照、数据太旧、定位被拒走 IP 兜底、无逐时预报、正在切城市、今天不用加减层、安全预警、连不上也定位不到 —— 每个都由真实事实触发
+- **下拉刷新 / 触感反馈**
 
 ## 技术栈
 
@@ -22,11 +24,20 @@
 | --- | --- |
 | 框架 | Vue 3.5（`<script setup>` + TypeScript） |
 | 构建 | Vite 8 + vue-tsc |
-| 状态 | Pinia（`useLocalStorage` 持久化用户设置） |
-| 样式 | UnoCSS + Sass，玻璃拟态 + 天气渐变 |
-| 工具库 | @vueuse/core（定位/深色/防抖/过渡/振动）、dayjs、@iconify/vue（图标本地化，零网络加载） |
+| 状态 | Pinia（setup store + localStorage 持久化用户设置与定位来源） |
+| 样式 | Sass 设计令牌 + UnoCSS，日系漫画分镜风：奶油纸底 + 白卡 + 3px 墨线 + 8px 圆角 + 4px 硬阴影（无模糊投影、无渐变背景） |
+| 图标 | 24 件服装 + 洋葱君，内联 SVG 雪碧图三通道着色（`--gf/--gs/--ga`），零网络；界面 chrome 图标用 @iconify/vue 本地注册 |
+| 工具库 | @vueuse/core（定位/防抖/振动）、dayjs |
 | PWA | vite-plugin-pwa（prompt 更新策略） |
 | 测试 | Vitest（`core/` 纯函数方向性断言，node 环境） |
+
+视觉与文案的唯一来源是设计交付包：令牌见 `src/styles/_tokens.scss`，图标见
+`src/components/garmentSprite.ts`，全部界面文案见 `src/presentation/index.ts`，
+边界状态见 `src/composables/useBoundaryStates.ts` —— 改设计要同步这几处，界面与文档必须说同一件事。
+
+> 两处有意的偏离：交付包示例是彩底配白字，实测白字压橘只有 2.84:1，达不到正文 AA，
+> 因此彩底一律改用墨字（5.9–7.4:1），白卡上的六维数字改用深一档同族色（原色只留给条形）。
+> 数字字体 Outfit 未随包内置（断网可用是硬约束），缺失时落系统无衬线，字重与字距仍生效。
 
 ## 快速开始
 
@@ -53,11 +64,18 @@ src/
 ├── services/        # 天气/城市服务编排
 ├── stores/          # Pinia（天气快照 / 用户设置持久化）
 ├── presentation/    # 文案层（只翻译不决策）
-├── composables/     # 下拉刷新 / 调色板 / 主题 / 触感
-├── cards/           # 首页分区卡片
-├── components/      # 基础组件（玻璃卡片 / 分段选择器 / 时间选择…）
-└── views/           # 首页 / 选城页
+├── composables/     # 共享时钟（结论随时刻刷新）/ 下拉刷新 / 触感 / 边界状态推导
+├── components/      # 墨线卡、层卡行、状态点、六维条、时间线曲线、雪碧图宿主…
+└── views/           # 今天 / 洋葱结构 / 一天 / 带伞 / 我的 / 首次引导 / 状态墙 / 服装图鉴 / 图标版
 ```
+
+## 屏幕与信息优先级
+
+移动端 4 个 Tab（今天 / 一天 / 带伞 / 我的）+ 3 个下钻屏（洋葱结构、服装图鉴、状态墙）；
+834 双栏（左：此刻穿什么 / 右：一屏看完一天）、1440 三栏（导航 / 结论 / 依据）。
+
+Q2「此刻穿几层」是唯一主角，占首屏最大字号；Q4 带伞独立成第二块；Q1 结构收进同一张卡的层列表，
+点脚注「为什么是这三件」下钻；Q3 时间线放第三屏；Q5 明日压成一行且只在真的有变化时出现。
 
 ## 天气数据
 
@@ -67,10 +85,11 @@ src/
 
 ## 部署（GitHub Pages）
 
-推送到 `main` 分支自动触发 [.github/workflows/deploy.yml](.github/workflows/deploy.yml)：pnpm 安装依赖 → 构建（`VITE_BASE=/onionfit/`）→ 官方 Pages 三件套部署。
+推送到 `main` 分支自动触发 [.github/workflows/deploy.yml](.github/workflows/deploy.yml)：pnpm 安装依赖 → 类型检查 + 单测 → 构建（`VITE_BASE=/onionfit/`）→ 官方 Pages 三件套部署。
 
-**在线访问：<https://fwd001.github.io/onionfit/>**
+**在线访问：<https://wenzo001.github.io/onionfit/>**
 
 一次性设置：仓库 **Settings → Pages → Source 选择 "GitHub Actions"**（若已选则无需操作）。
 
-仓库名变更时同步修改 workflow 中的 `VITE_BASE`。
+仓库改名或换 owner 时要同步三处：workflow 里的 `VITE_BASE`（决定资源前缀）、上面这个访问地址、
+以及 GitHub 仓库主页字段。旧 owner 的 Pages 地址不会自动跳转（实测 404）。
