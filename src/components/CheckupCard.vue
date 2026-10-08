@@ -8,7 +8,7 @@ import type { OutfitRecommendation } from '@/core/types'
 const props = defineProps<{ rec: OutfitRecommendation }>()
 
 const grade = computed(() => scoreGrade(props.rec.dayScore))
-const detail = computed(() => scoreDetail(props.rec.dayOutfit))
+const detail = computed(() => scoreDetail(props.rec.dayOutfit, props.rec.thermal.requiredMaxClo))
 </script>
 
 <template>

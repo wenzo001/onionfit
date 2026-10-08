@@ -307,14 +307,12 @@ export function scoreGrade(score: number): string {
   return '有点勉强'
 }
 
-/** 一行体检明细：全部取组装结果里的真实数字 */
-export function scoreDetail(a: OutfitAssembly): string {
-  return [
-    `保暖 ${a.effectiveClo.toFixed(2)} clo`,
-    `挡风 ${Math.round(a.wind * 100)}%`,
-    `${a.weightGrams}g`,
-    `${a.removableCount} 件可脱`,
-  ].join(' · ')
+/** 一行体检明细：定性词是「有效 clo 对比设计时刻所需 clo」，不是另起一套判断 */
+export function scoreDetail(a: OutfitAssembly, requiredClo: number): string {
+  const ratio = requiredClo > 0 ? a.effectiveClo / requiredClo : 1
+  const warmth = ratio < 0.85 ? '保暖偏薄' : ratio > 1.25 ? '保暖偏厚' : '保暖刚好'
+  const wind = a.wind >= 0.7 ? '挡风够' : a.wind >= 0.4 ? '挡风一般' : '挡风不足'
+  return `${warmth} · ${wind} · ${a.weightGrams}g · ${a.removableCount} 件可脱`
 }
 
 // ===== 时间线（Q3：「之后」的事，放第三屏） =====
@@ -643,8 +641,8 @@ export const ONBOARD = {
 /** 体感表述（主屏一行） */
 export function feelsLikeText(feelsC: number, tempC: number): string {
   const diff = feelsC - tempC
-  if (Math.abs(diff) < 1) return `${fmtTempC(feelsC)} 与气温相当`
-  return `${fmtTempC(feelsC)} ${diff > 0 ? '比气温闷热' : '比气温凉'}`
+  if (Math.abs(diff) < 1) return `体感 ${fmtTempC(feelsC)} 与气温相当`
+  return `体感 ${fmtTempC(feelsC)} ${diff > 0 ? '比气温闷热' : '比气温凉'}`
 }
 
 export function humidityLine(percent: number): string {

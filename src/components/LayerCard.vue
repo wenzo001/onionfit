@@ -22,7 +22,10 @@ const now = computed(() => {
 
 <template>
   <InkCard class="layer-card">
-    <div class="head">
+    <div
+      v-if="!graphic"
+      class="head"
+    >
       <h1 class="headline">
         此刻穿<span class="num">{{ rec.wornNowCount }}</span>层
       </h1>
@@ -54,6 +57,7 @@ const now = computed(() => {
     </div>
 
     <RouterLink
+      v-if="!graphic"
       class="foot"
       :to="{ name: 'onion' }"
     >

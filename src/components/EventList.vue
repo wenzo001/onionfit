@@ -46,15 +46,18 @@ const parts = computed(() =>
     </div>
 
     <div class="parts">
-      <div
-        v-for="p in parts"
-        :key="p.hour"
-        class="part"
-        :class="{ now: p.isNow }"
-      >
-        <div class="part-hour num">{{ p.hour }}</div>
-        <div class="part-temp num">{{ p.title }}</div>
-        <div class="part-note">{{ p.note }}</div>
+      <div class="parts-title">一天三段</div>
+      <div class="parts-grid">
+        <div
+          v-for="p in parts"
+          :key="p.hour"
+          class="part"
+          :class="{ now: p.isNow }"
+        >
+          <div class="part-hour num">{{ p.hour }}</div>
+          <div class="part-temp num">{{ p.title }}</div>
+          <div class="part-note">{{ p.note }}</div>
+        </div>
       </div>
     </div>
   </div>
@@ -103,10 +106,20 @@ const parts = computed(() =>
 
 /* 三段一律白卡：行底色是层角色的专用语言，时间不借用它 */
 .parts {
+  margin-top: #{$sp * 1.5};
+}
+
+.parts-title {
+  font-size: 12.5px;
+  font-weight: #{$title-weight};
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+
+.parts-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  margin-top: #{$sp * 1.5};
 }
 
 .part {
