@@ -14,13 +14,13 @@ import { useBoundaryStates } from '@/composables/useBoundaryStates'
 import { UMBRELLA_OUTCOMES, formatClock } from '@/presentation'
 
 const router = useRouter()
-const { weather, settings, recommendation } = usePlan()
+const { weather, settings, recommendation, now: clock } = usePlan()
 const { activeStates } = useBoundaryStates(weather, recommendation)
 
 const rec = computed(() => recommendation.value)
 const states = computed(() => activeStates.value.filter((s) => s.scope !== 'timeline'))
 const commute = computed(() => ({ out: settings.outTime, home: settings.homeTime }))
-const now = computed(() => formatClock(new Date()))
+const now = computed(() => formatClock(clock.value))
 </script>
 
 <template>

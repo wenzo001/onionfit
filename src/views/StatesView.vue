@@ -66,6 +66,7 @@ const danger = computed(() => {
             dayRainMm: 0,
             dayUvMax: 8.4,
             designHourTempC: 24,
+            designHourWindMs: 3.2,
             rainExposure: 0.4,
             hasHourly: true,
           }"

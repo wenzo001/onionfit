@@ -14,6 +14,7 @@ import {
   updatedLine,
   weatherDesc,
 } from '@/presentation'
+import { useNow } from '@/composables/useNow'
 import type { OutfitRecommendation } from '@/core/types'
 
 const props = defineProps<{
@@ -26,7 +27,8 @@ const props = defineProps<{
 const emit = defineEmits<{ pickCity: [] }>()
 
 const generated = computed(() => new Date(props.generatedAt))
-const now = computed(() => formatClock(new Date()))
+const clock = useNow()
+const now = computed(() => formatClock(clock.value))
 </script>
 
 <template>

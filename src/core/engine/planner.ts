@@ -103,6 +103,8 @@ export function plan({ report, settings, now = new Date() }: PlanInput): OutfitR
       dayRainMm: ctx.dayRainMm,
       dayUvMax: ctx.dayUvMax,
       designHourTempC: designHour.temperatureC,
+      designHourWindMs:
+        ctx.day.find((p) => p.hour === designHour.hour)?.windSpeedMs ?? ctx.windMaxMs,
       rainExposure: activity.rainExposure,
       hasHourly: ctx.hasHourly,
     },

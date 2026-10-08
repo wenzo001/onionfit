@@ -280,6 +280,8 @@ export interface RecommendationFacts {
   dayUvMax: number
   /** 设计时刻（全天最需保暖的那个小时）的气温 */
   designHourTempC: number
+  /** 设计时刻那一刻的风速（不是全天最大值，界面说「最冷的 6 点 + 大风」时要用它） */
+  designHourWindMs: number
   /** 活动带来的雨暴露系数 0-1，0 = 全程室内 */
   rainExposure: number
   hasHourly: boolean

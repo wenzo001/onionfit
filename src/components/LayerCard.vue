@@ -4,7 +4,8 @@
 import { computed } from 'vue'
 import InkCard from './InkCard.vue'
 import LayerRow from './LayerRow.vue'
-import { orderLayers, whyFootnote } from '@/presentation'
+import { orderLayers, whyFootnote, formatClock } from '@/presentation'
+import { useNow } from '@/composables/useNow'
 import type { OutfitRecommendation } from '@/core/types'
 
 const props = defineProps<{
@@ -14,10 +15,8 @@ const props = defineProps<{
 }>()
 
 const layers = computed(() => orderLayers(props.rec.nowOutfit.layers))
-const now = computed(() => {
-  const d = new Date()
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-})
+const clock = useNow()
+const now = computed(() => formatClock(clock.value))
 </script>
 
 <template>

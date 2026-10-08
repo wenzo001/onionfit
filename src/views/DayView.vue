@@ -24,7 +24,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { CURVE_HINT } from '@/presentation'
 
 const router = useRouter()
-const { weather, settings, report, recommendation } = usePlan()
+const { weather, settings, report, recommendation, now: clock } = usePlan()
 const { activeStates } = useBoundaryStates(weather, recommendation)
 
 weather.bootstrap()
@@ -45,7 +45,7 @@ const pullStyle = computed(() => ({
 const rec = computed(() => recommendation.value)
 const dayStates = computed(() => activeStates.value.filter((s) => s.scope !== 'timeline'))
 const nextDay = computed(() => report.value?.daily[1] ?? null)
-const nowHour = computed(() => new Date().getHours())
+const nowHour = computed(() => clock.value.getHours())
 const doffHour = computed(() => {
   const e = rec.value?.timeline.find((x) => x.action === 'REMOVE')
   return e ? Number(e.hour.split(':')[0]) : null

@@ -6,6 +6,7 @@ import { computed, ref } from 'vue'
 import type { CityInfo, WeatherReport } from '@/core/types'
 import { readSnapshot, writeSnapshot } from '@/data/snapshot'
 import { WeatherService } from '@/services/weatherService'
+import { useNow } from '@/composables/useNow'
 import { useSettingsStore } from './settings'
 
 export type LocationSource = 'gps' | 'ip' | 'manual'
@@ -22,6 +23,7 @@ const service = new WeatherService()
 
 export const useWeatherStore = defineStore('weather', () => {
   const saved = readSnapshot()
+  const clock = useNow()
 
   const city = ref<CityInfo>(saved.city)
   const report = ref<WeatherReport | null>(saved.weather)
@@ -61,13 +63,13 @@ export const useWeatherStore = defineStore('weather', () => {
     }
   })
 
-  /** 距上次成功更新的分钟数 */
+  /** 距上次成功更新的分钟数（跟着共享时钟走，挂着不动也会自己变大） */
   const minutesAgo = computed(() => {
     if (!report.value) return 0
     try {
       return Math.max(
         0,
-        Math.floor((Date.now() - new Date(report.value.generatedAt).getTime()) / 60000),
+        Math.floor((clock.value.getTime() - new Date(report.value.generatedAt).getTime()) / 60000),
       )
     } catch {
       return 0

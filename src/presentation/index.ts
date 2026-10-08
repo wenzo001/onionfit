@@ -44,22 +44,22 @@ function cnCount(n: number): string {
 
 // ===== 主屏 =====
 
-/** 天气短语只描述现象，温度由大号数字承担 */
+/** 天气短语只描述现象，温度由大号数字承担（§05 口径：「多云 · 白天」） */
 export function weatherDesc(kind: WeatherKind, isDay: boolean): string {
   const time = isDay ? '白天' : '夜间'
   switch (kind) {
     case 'clear':
-      return `${time}晴`
+      return `晴 · ${time}`
     case 'cloudy':
-      return `${time}多云`
+      return `多云 · ${time}`
     case 'rain':
-      return `${time}有雨`
+      return `有雨 · ${time}`
     case 'snow':
-      return `${time}降雪`
+      return `降雪 · ${time}`
     case 'thunder':
-      return `${time}雷雨`
+      return `雷雨 · ${time}`
     case 'fog':
-      return `${time}有雾`
+      return `有雾 · ${time}`
     default:
       return time
   }
@@ -521,8 +521,8 @@ export function tomorrowLine(
 export function designHourLine(r: OutfitRecommendation): string {
   const h = r.thermal.maxRequiredCloHour
   const t = r.facts.designHourTempC
-  const wind = r.facts.windMaxMs
-  const windy = wind >= 8 ? '+大风' : ''
+  // 「大风」只能说那个小时的风，用全天最大值会把不风的午后说成风大
+  const windy = r.facts.designHourWindMs >= 8 ? '+大风' : ''
   return `按全天最冷的 ${h}:00（${fmtTempC(t)}${windy}）配的。午后回暖只脱一层，不换一套。`
 }
 
