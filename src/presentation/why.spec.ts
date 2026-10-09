@@ -90,7 +90,7 @@ describe('whyReasons：每条理由都标出处', () => {
     const s = makeSettings({ styles: ['DAILY', 'KOREAN_CLEAN'], occasion: 'OFFICE' })
     const withStyle = planAt(COLD_WINDY, s)
     const out = whyReasons(withStyle, s)
-    expect(out.some((x) => x.source === 'style' && x.text.includes('日常简约、韩系干净'))).toBe(true)
+    expect(out.some((x) => x.source === 'style' && x.text.includes('日常简约、韩系简洁'))).toBe(true)
     expect(out.some((x) => x.source === 'style' && x.text.includes('办公'))).toBe(true)
 
     // 同一份结论，不传设置时风格行必须缺席（不能拿别处的风格冒充）
@@ -226,6 +226,6 @@ describe('风格标签表：与 deck / 设置里的名字同源', () => {
   it('覆盖全部 8 种风格，两个示名字与 deck 13 一致', () => {
     expect(Object.keys(STYLE_LABEL)).toHaveLength(8)
     expect(STYLE_LABEL.DAILY).toBe('日常简约')
-    expect(STYLE_LABEL.KOREAN_CLEAN).toBe('韩系干净')
+    expect(STYLE_LABEL.KOREAN_CLEAN).toBe('韩系简洁')
   })
 })

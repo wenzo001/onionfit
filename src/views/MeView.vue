@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// 我的（屏 04）：五项输入 + 「改完立刻重算」的证据 + 图鉴/状态墙等入口
-// 全部输入都有默认值，改完界面立刻重算（不重新拉网络）
+// 我的（deck 14）：12 个维度全部有默认值 + 「已改 N 项 · M 项用默认」
+// 两组：谁在穿（影响安全边界）/ 今天怎么过（影响暴露与风雨）；⑨⑩⑪⑫ 收进「穿成什么样」只做软排序
 import { computed, ref, watch } from 'vue'
 import InkCard from '@/components/InkCard.vue'
 import BadgePill from '@/components/BadgePill.vue'
@@ -9,22 +9,61 @@ import SegmentedPicker from '@/components/SegmentedPicker.vue'
 import TimePicker from '@/components/TimePicker.vue'
 import { usePlan } from '@/composables/usePlan'
 import { SELECTABLE_ACTIVITIES } from '@/core/engine/activity'
-import { activityDiff } from '@/presentation'
-import type { ActivityKind, BodyProfile, HeatSensitivity } from '@/core/types'
+import type { SegmentedOption } from '@/components/segmentedTypes'
+import type { ActivityKind } from '@/core/types'
+import {
+  COLOR_LABEL,
+  COLOR_ORDER,
+  HABIT_LABEL,
+  HABIT_ORDER,
+  HABIT_SUB,
+  OCCASION_LABEL,
+  OCCASION_ORDER,
+  PRESENTATION_LABEL,
+  PRESENTATION_ORDER,
+  PROFILE_LABEL,
+  PROFILE_ORDER,
+  SENSITIVITY_LABEL,
+  SENSITIVITY_ORDER,
+  SILHOUETTE_LABEL,
+  SILHOUETTE_ORDER,
+  STYLE_LABEL,
+  STYLE_ORDER,
+  SWEAT_LABEL,
+  SWEAT_ORDER,
+  activityDiff,
+  settingsCountLine,
+  styleSummary,
+} from '@/presentation'
 
 const { weather, settings, recommendation, planAs } = usePlan()
 
-const PROFILE: { value: BodyProfile; label: string }[] = [
-  { value: 'ADULT', label: '成人' },
-  { value: 'CHILD', label: '儿童' },
-  { value: 'ELDERLY', label: '老人' },
-]
+const cur = computed(() => settings.settings)
+const countLine = computed(() => settingsCountLine(settings.settings))
+const summaryLine = computed(() => styleSummary(settings.settings))
 
-const SENS: { value: HeatSensitivity; label: string }[] = [
-  { value: 'COLD_SENSITIVE', label: '怕冷' },
-  { value: 'NORMAL', label: '标准' },
-  { value: 'HEAT_SENSITIVE', label: '怕热' },
-]
+/** 选项 = 标签表 + 设计稿顺序；成员由 Record 类型保证与引擎枚举一一对应 */
+function options<T extends string>(
+  labels: Record<T, string>,
+  order: T[],
+  sub?: (v: T) => string,
+): SegmentedOption<T>[] {
+  return order.map((v) => {
+    const o: SegmentedOption<T> = { value: v, label: labels[v] }
+    if (sub) o.sub = sub(v)
+    return o
+  })
+}
+
+const profileOpts = options(PROFILE_LABEL, PROFILE_ORDER)
+const sensOpts = options(SENSITIVITY_LABEL, SENSITIVITY_ORDER)
+const sweatOpts = options(SWEAT_LABEL, SWEAT_ORDER)
+const habitOpts = options(HABIT_LABEL, HABIT_ORDER, (v) => HABIT_SUB[v])
+const occasionOpts = options(OCCASION_LABEL, OCCASION_ORDER)
+const styleOpts = options(STYLE_LABEL, STYLE_ORDER)
+const presentationOpts = options(PRESENTATION_LABEL, PRESENTATION_ORDER)
+const silhouetteOpts = options(SILHOUETTE_LABEL, SILHOUETTE_ORDER)
+const colorOpts = options(COLOR_LABEL, COLOR_ORDER)
 
 /** 预览目标活动：不选当前值，否则差异恒为 0，「重算有效」就证明不了 */
 const previewActivity = computed<ActivityKind>(() => {
@@ -72,69 +111,121 @@ const ENTRIES = [
       <section class="col col-wide">
         <div class="head">
           <SectionTitle
-            title="我在为谁穿衣？"
-            sub="五项都有默认值"
+            title="今天怎么算"
+            sub="12 个维度，全部有默认值"
           />
-          <BadgePill :tone="recalced ? 'orange' : 'yellow'">
-            {{ recalced ? '已重算' : '改完立刻重算' }}
-          </BadgePill>
+          <div class="chips">
+            <BadgePill
+              v-if="recalced"
+              tone="orange"
+            >
+              已重算
+            </BadgePill>
+            <BadgePill tone="yellow">{{ countLine }}</BadgePill>
+          </div>
         </div>
+        <p class="lede">默认值都是中性的，不改也能拿到结论。</p>
       </section>
 
       <section class="col">
+        <div class="group">
+          <b>谁在穿</b>
+          <span>影响安全边界</span>
+        </div>
+
         <InkCard class="field">
           <div class="label">
-            为谁穿衣
-            <span class="hint">老人孩子更怕冷、更怕晒</span>
+            <i class="no">①</i>人群阶段
           </div>
           <SegmentedPicker
-            :options="PROFILE"
-            :model-value="settings.profile"
+            :options="profileOpts"
+            :model-value="cur.profile"
             @update:model-value="settings.set('profile', $event)"
           />
         </InkCard>
 
         <InkCard class="field">
           <div class="label">
-            冷热体质
-            <span class="hint">怕冷 = −2°，怕热 = +1.5°</span>
+            <i class="no">②</i>冷热偏好
           </div>
           <SegmentedPicker
-            :options="SENS"
-            :model-value="settings.sensitivity"
+            :options="sensOpts"
+            :model-value="cur.sensitivity"
             @update:model-value="settings.set('sensitivity', $event)"
           />
+          <p class="footnote">不用「男性一定耐冷」这类规则，偏好只来自你自己的选择。</p>
         </InkCard>
 
         <InkCard class="field">
           <div class="label">
-            今天主要活动
-            <span class="hint">影响最大，骑车和走路完全不同</span>
+            <i class="no">③</i>易出汗
           </div>
           <SegmentedPicker
-            scrollable
-            :options="SELECTABLE_ACTIVITIES"
-            :model-value="settings.activity"
-            @update:model-value="settings.set('activity', $event)"
+            :options="sweatOpts"
+            :model-value="cur.sweat ?? 'AVERAGE'"
+            @update:model-value="settings.set('sweat', $event)"
           />
+          <p class="footnote">提高排湿、速干、备用贴身层的偏好，但不抵消防寒。</p>
         </InkCard>
       </section>
 
       <section class="col">
+        <div class="group">
+          <b>今天怎么过</b>
+          <span>影响暴露与风雨</span>
+        </div>
+
         <InkCard class="field">
           <div class="label">
-            出门和回家时间
-            <span class="hint">填了带伞结论差很多</span>
+            <i class="no">④</i>今天主要做什么
+          </div>
+          <SegmentedPicker
+            scrollable
+            :options="SELECTABLE_ACTIVITIES"
+            :model-value="cur.activity"
+            @update:model-value="settings.set('activity', $event)"
+          />
+          <p class="footnote">「开车」也在选项里；9 种活动与引擎枚举一一对应，选不到的不存在。</p>
+        </InkCard>
+
+        <InkCard class="field">
+          <div class="label">
+            <i class="no">⑤</i>暴露习惯
+          </div>
+          <SegmentedPicker
+            :options="habitOpts"
+            :model-value="cur.exposureHabit ?? 'SHORT_OUTDOOR'"
+            @update:model-value="settings.set('exposureHabit', $event)"
+          />
+          <p class="footnote">决定安全时段和外层防护，不是只看整天最高 / 最低温。</p>
+        </InkCard>
+
+        <InkCard class="field">
+          <div class="label">
+            <i class="no">⑥</i>场合
+          </div>
+          <SegmentedPicker
+            scrollable
+            :options="occasionOpts"
+            :model-value="cur.occasion ?? 'DAILY'"
+            @update:model-value="settings.set('occasion', $event)"
+          />
+          <p class="footnote">场合约束正式程度与功能需求；风格是你想要的，场合是必须满足的。</p>
+        </InkCard>
+
+        <InkCard class="field">
+          <div class="label">
+            <i class="no">⑦⑧</i>出门 / 回家时刻
           </div>
           <div class="time-pair">
             <TimePicker
-              :model-value="settings.outTime"
+              :model-value="cur.outTime"
               placeholder="出门"
               @update:model-value="settings.set('outTime', $event)"
             />
             <span class="sep">→</span>
             <TimePicker
-              :model-value="settings.homeTime"
+              :model-value="cur.homeTime"
               placeholder="回家"
               @update:model-value="settings.set('homeTime', $event)"
             />
@@ -143,10 +234,79 @@ const ENTRIES = [
             v-if="!settings.hasSchedule"
             class="tip"
           >
-            没填时按 07:30 / 18:00 估算，带伞卡上会写明是估的。
+            没填就按 07:30 / 18:00 估算 —— 会标成默认值，不等于你设过。
           </p>
         </InkCard>
 
+        <details class="panel">
+          <summary class="panel-head">
+            <span class="tri">▸</span>
+            <b>穿成什么样</b>
+            <span class="g-sub">只做软排序</span>
+          </summary>
+          <p class="panel-sum">{{ summaryLine }}</p>
+          <p class="panel-note">
+            这 4 项只进候选排序，排在硬过滤与安全判定之后 —— 风格再合适，也不能让防护硬条件失效。该穿雨衣还是穿雨衣。
+          </p>
+          <div class="pipe">
+            <span class="p-step">① 硬过滤</span>
+            <span class="p-arrow">→</span>
+            <span class="p-step">② 安全判定</span>
+            <span class="p-arrow">→</span>
+            <span class="p-step on">③ 风格排序</span>
+          </div>
+
+          <InkCard class="field">
+            <div class="label">
+              <i class="no">⑨</i>风格（可多选）
+            </div>
+            <SegmentedPicker
+              multiple
+              scrollable
+              :options="styleOpts"
+              :model-value="cur.styles ?? []"
+              @update:model-value="settings.set('styles', $event)"
+            />
+          </InkCard>
+
+          <InkCard class="field">
+            <div class="label">
+              <i class="no">⑩</i>穿搭呈现
+            </div>
+            <SegmentedPicker
+              :options="presentationOpts"
+              :model-value="cur.presentation ?? 'UNSPECIFIED'"
+              @update:model-value="settings.set('presentation', $event)"
+            />
+            <p class="footnote">只影响款式与配色候选，不能改变天气事实和安全风险。</p>
+          </InkCard>
+
+          <InkCard class="field">
+            <div class="label">
+              <i class="no">⑪</i>版型偏好
+            </div>
+            <SegmentedPicker
+              :options="silhouetteOpts"
+              :model-value="cur.silhouette ?? 'REGULAR'"
+              @update:model-value="settings.set('silhouette', $event)"
+            />
+          </InkCard>
+
+          <InkCard class="field">
+            <div class="label">
+              <i class="no">⑫</i>色彩偏好（可选）
+            </div>
+            <SegmentedPicker
+              scrollable
+              :options="colorOpts"
+              :model-value="cur.colorPreference ?? 'ANY'"
+              @update:model-value="settings.set('colorPreference', $event)"
+            />
+          </InkCard>
+        </details>
+      </section>
+
+      <section class="col col-wide">
         <InkCard
           v-if="previewDiff"
           tone="paper"
@@ -208,23 +368,67 @@ const ENTRIES = [
   flex-wrap: wrap;
 }
 
+.chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.lede {
+  margin-top: 6px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: rgba(0, 0, 0, 0.72);
+}
+
+.group {
+  display: flex;
+  align-items: baseline;
+  gap: #{$sp};
+}
+
+.group b {
+  font-size: 15px;
+  font-weight: #{$title-weight};
+  color: var(--ink);
+}
+
+.group span {
+  font-size: 11.5px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
 .field {
   padding: #{$sp * 1.5};
 }
 
 .label {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 6px;
   margin-bottom: 10px;
   font-size: 14px;
   font-weight: #{$title-weight};
   color: var(--ink);
 }
 
-.hint {
+.no {
+  font-style: normal;
+  font-family: var(--font-num);
+  font-size: 11px;
+  font-weight: #{$numeral-weight};
+  line-height: 1;
+  padding: 3px 5px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: var(--yellow);
+}
+
+.footnote {
+  margin-top: 8px;
   font-size: 11.5px;
-  font-weight: 400;
+  line-height: 1.6;
   color: rgba(0, 0, 0, 0.66);
 }
 
@@ -245,6 +449,96 @@ const ENTRIES = [
   font-size: 11.5px;
   color: #{$warn};
   font-weight: 700;
+}
+
+/* 「穿成什么样」折叠面板：默认收起，展开才见 ⑨⑩⑪⑫ */
+.panel {
+  border: var(--sw) solid var(--ink);
+  border-radius: var(--r);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+
+  > *:not(summary) {
+    margin: 0 #{$sp * 1.5} #{$sp * 1.25};
+  }
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 6px #{$sp * 1.5};
+  cursor: pointer;
+  list-style: none;
+
+  &::-webkit-details-marker {
+    display: none;
+  }
+
+  b {
+    font-size: 14.5px;
+    font-weight: #{$title-weight};
+    color: var(--ink);
+  }
+
+  .g-sub {
+    font-size: 11.5px;
+    color: rgba(0, 0, 0, 0.6);
+  }
+}
+
+.tri {
+  font-family: var(--font-num);
+  font-size: 13px;
+  color: var(--ink);
+  transition: transform 0.15s ease;
+}
+
+.panel[open] .tri {
+  transform: rotate(90deg);
+}
+
+.panel-sum {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.panel-note {
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: rgba(0, 0, 0, 0.66);
+}
+
+.pipe {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.p-step {
+  font-size: 11.5px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border: 2px solid var(--ink);
+  border-radius: var(--r-pill);
+  background: var(--card);
+  color: var(--ink);
+}
+
+.p-step.on {
+  background: var(--yellow);
+}
+
+.p-arrow {
+  font-family: var(--font-num);
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.panel .field + .field {
+  margin-top: #{$sp * 1.25};
 }
 
 .compare {

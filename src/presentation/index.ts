@@ -5,21 +5,27 @@
 import type {
   Accessory,
   ApparelLayer,
+  BodyProfile,
+  ColorPreference,
   CoverageStatus,
   DemandDim,
   DemandVector,
   DayPart,
   ExposureHabit,
+  HeatSensitivity,
   HourlyEnvironment,
   LayerRole,
   Occasion,
   OutfitAssembly,
   OutfitRecommendation,
+  Presentation,
   ReasonCode,
   RecommendationFacts,
   SafetyReport,
   ScoreBucket,
+  Silhouette,
   StyleTag,
+  SweatLevel,
   TimelineEvent,
   UmbrellaAssessment,
   UmbrellaLeg,
@@ -28,6 +34,7 @@ import type {
   WeatherDay,
   WeatherKind,
 } from '@/core/types'
+import { DEFAULT_SETTINGS } from '@/core/types'
 import { localHourOf } from '@/core/engine/weather'
 import { CATALOG } from '@/core/catalog'
 import { computeAssembly, scoreDetail as engineScoreDetail } from '@/core/engine/scoring'
@@ -791,25 +798,25 @@ const ACTIVITY_LABEL = new Map(SELECTABLE_ACTIVITIES.map((a) => [a.value, a.labe
 export const STYLE_LABEL: Record<StyleTag, string> = {
   DAILY: '日常简约',
   COMMUTE: '通勤',
-  BUSINESS: '商务',
+  BUSINESS: '商务正式',
   SPORT: '运动',
   OUTDOOR: '户外机能',
   STREET: '街头',
   JAPANESE_LOOSE: '日系宽松',
-  KOREAN_CLEAN: '韩系干净',
+  KOREAN_CLEAN: '韩系简洁',
 }
 
 export const OCCASION_LABEL: Record<Occasion, string> = {
   DAILY: '日常',
   OFFICE: '办公',
-  SCHOOL: '校园',
+  SCHOOL: '学校',
   SPORT: '运动',
-  OUTDOOR_WORK: '户外工作',
-  FORMAL: '正式',
+  OUTDOOR_WORK: '户外作业',
+  FORMAL: '正式活动',
 }
 
-const HABIT_LABEL: Record<ExposureHabit, string> = {
-  MAINLY_INDOOR: '室内为主',
+export const HABIT_LABEL: Record<ExposureHabit, string> = {
+  MAINLY_INDOOR: '主要室内',
   SHORT_OUTDOOR: '短时户外',
   LONG_OUTDOOR: '长时户外',
 }
@@ -992,6 +999,122 @@ export function thickAlternative(r: OutfitRecommendation, settings?: UserSetting
           : `还差 ${Math.abs(margin)} clo，但换上厚的更不划算`,
     },
   }
+}
+
+// ===== 设置面板（deck 14）：12 个维度、已改计数、折叠摘要 =====
+
+export const PROFILE_LABEL: Record<BodyProfile, string> = {
+  CHILD: '儿童',
+  ADULT: '成人',
+  ELDERLY: '老年人',
+}
+
+export const SENSITIVITY_LABEL: Record<HeatSensitivity, string> = {
+  COLD_SENSITIVE: '怕冷',
+  NORMAL: '中性',
+  HEAT_SENSITIVE: '怕热',
+}
+
+export const SWEAT_LABEL: Record<SweatLevel, string> = {
+  NO: '否',
+  AVERAGE: '一般',
+  EASY: '容易',
+}
+
+export const PRESENTATION_LABEL: Record<Presentation, string> = {
+  MASCULINE: '男性化',
+  FEMININE: '女性化',
+  NEUTRAL: '中性',
+  UNSPECIFIED: '不指定',
+}
+
+export const SILHOUETTE_LABEL: Record<Silhouette, string> = {
+  FITTED: '合身',
+  REGULAR: '常规',
+  LOOSE: '宽松',
+}
+
+export const COLOR_LABEL: Record<ColorPreference, string> = {
+  NEUTRAL: '中性色',
+  COOL: '冷色',
+  WARM: '暖色',
+  BRIGHT: '明亮',
+  ANY: '无偏好',
+}
+
+/** 界面展示顺序 = 设计稿顺序；成员必须与对应枚举一一对应（§10.1 引擎枚举与界面一致） */
+export const PROFILE_ORDER: BodyProfile[] = ['CHILD', 'ADULT', 'ELDERLY']
+export const SENSITIVITY_ORDER: HeatSensitivity[] = ['COLD_SENSITIVE', 'NORMAL', 'HEAT_SENSITIVE']
+export const SWEAT_ORDER: SweatLevel[] = ['NO', 'AVERAGE', 'EASY']
+export const HABIT_ORDER: ExposureHabit[] = ['MAINLY_INDOOR', 'SHORT_OUTDOOR', 'LONG_OUTDOOR']
+export const OCCASION_ORDER: Occasion[] = ['DAILY', 'OFFICE', 'SCHOOL', 'SPORT', 'OUTDOOR_WORK', 'FORMAL']
+export const STYLE_ORDER: StyleTag[] = [
+  'DAILY',
+  'COMMUTE',
+  'BUSINESS',
+  'SPORT',
+  'OUTDOOR',
+  'STREET',
+  'JAPANESE_LOOSE',
+  'KOREAN_CLEAN',
+]
+export const PRESENTATION_ORDER: Presentation[] = ['MASCULINE', 'FEMININE', 'NEUTRAL', 'UNSPECIFIED']
+export const SILHOUETTE_ORDER: Silhouette[] = ['FITTED', 'REGULAR', 'LOOSE']
+export const COLOR_ORDER: ColorPreference[] = ['NEUTRAL', 'COOL', 'WARM', 'BRIGHT', 'ANY']
+
+/** 暴露习惯的时长刻度（设计稿口径：主要室内 = 户外时长 < 30 分） */
+export const HABIT_SUB: Record<ExposureHabit, string> = {
+  MAINLY_INDOOR: '< 30 分',
+  SHORT_OUTDOOR: '0.5–2 时',
+  LONG_OUTDOOR: '> 2 时',
+}
+
+/** 12 个维度各自「与默认不同」的判据（顺序 = deck 14 编号 ①—⑫） */
+const DIM_CHANGED: ((s: UserSettings) => boolean)[] = [
+  (s) => s.profile !== DEFAULT_SETTINGS.profile,
+  (s) => s.sensitivity !== DEFAULT_SETTINGS.sensitivity,
+  (s) => (s.sweat ?? DEFAULT_SETTINGS.sweat) !== DEFAULT_SETTINGS.sweat,
+  (s) => s.activity !== DEFAULT_SETTINGS.activity,
+  (s) => (s.exposureHabit ?? DEFAULT_SETTINGS.exposureHabit) !== DEFAULT_SETTINGS.exposureHabit,
+  (s) => (s.occasion ?? DEFAULT_SETTINGS.occasion) !== DEFAULT_SETTINGS.occasion,
+  (s) => s.outTime !== null,
+  (s) => s.homeTime !== null,
+  (s) => (s.styles?.length ?? 0) > 0,
+  (s) => (s.presentation ?? DEFAULT_SETTINGS.presentation) !== DEFAULT_SETTINGS.presentation,
+  (s) => (s.silhouette ?? DEFAULT_SETTINGS.silhouette) !== DEFAULT_SETTINGS.silhouette,
+  (s) => (s.colorPreference ?? DEFAULT_SETTINGS.colorPreference) !== DEFAULT_SETTINGS.colorPreference,
+]
+
+export interface SettingsCount {
+  changed: number
+  total: number
+}
+
+/** 「已改 N 项 · M 项用默认」；显式填的 07:30 算改（没填才用默认，不能看起来像设过） */
+export function settingsChangedCount(s: UserSettings): SettingsCount {
+  return { changed: DIM_CHANGED.filter((f) => f(s)).length, total: DIM_CHANGED.length }
+}
+
+export function settingsCountLine(s: UserSettings): string {
+  const { changed, total } = settingsChangedCount(s)
+  return `已改 ${changed} 项 · ${total - changed} 项用默认`
+}
+
+/** 折叠行摘要（⑨⑩⑪⑫ 四项；空风格 = 不挑风格，引擎不产生排序信号） */
+export function styleSummary(s: UserSettings): string {
+  const presentation = s.presentation ?? 'UNSPECIFIED'
+  const silhouette = s.silhouette ?? 'REGULAR'
+  const color = s.colorPreference ?? 'ANY'
+  const styles = s.styles ?? []
+  const changed =
+    styles.length > 0 || presentation !== 'UNSPECIFIED' || silhouette !== 'REGULAR' || color !== 'ANY'
+  const parts = [
+    styles.length ? styles.map((x) => STYLE_LABEL[x]).join('、') : '不挑风格',
+    PRESENTATION_LABEL[presentation],
+    SILHOUETTE_LABEL[silhouette],
+    COLOR_LABEL[color],
+  ]
+  return `${changed ? '当前' : '用默认'}：${parts.join(' · ')}`
 }
 
 // ===== 8 个边界状态（设计上必须覆盖，不允许假装确定） =====
