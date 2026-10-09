@@ -264,7 +264,4 @@ export const SCORING = {
   overWarmPenalty: 25,
   /** 过暖惩罚上限（防失真） */
   overWarmMaxPenalty: 30,
-  /** 硬件等级要求（雨时防护层最低） */
-  minShellForRain: 2,
-  minShellForWind: 1,
 }
