@@ -325,6 +325,27 @@ export interface RainPlan {
   reasons: ReasonCode[]
 }
 
+/**
+ * 地理与气候上下文（方案 §4，第三步）：
+ * 字段按当前天气源能力裁剪——只消费 lat/lon/timezone；气候带 / 海拔 / 沿海修正
+ * 留待数据源能提供对应气象字段缺失场景时再启用，不在此处凭空推断。
+ */
+export interface GeoClimateContext {
+  latitude: number | null
+  longitude: number | null
+  timezone: string | null
+  /** 南北半球（由纬度符号判断；赤道或位置缺失为 unknown） */
+  hemisphere: 'north' | 'south' | 'unknown'
+  /** 气象季节（月份 + 半球；无法判断时 unknown） */
+  season: 'spring' | 'summer' | 'autumn' | 'winter' | 'unknown'
+  /** 地理层数据来源：forecast = 天气源自带位置；fallback = 位置缺失的通用模型 */
+  dataSource: 'forecast' | 'fallback'
+  /** 地理层置信度 0-1，与数据质量置信度相乘后进入 coverage.confidence */
+  confidence: number
+  /** 缺失的输入清单（如 ['location']），供降级展示与解释 */
+  missingInputs: string[]
+}
+
 /** 推荐结论（planner 唯一输出，UI 消费） */
 export interface OutfitRecommendation {
   current: {
@@ -369,6 +390,8 @@ export interface OutfitRecommendation {
   /** 衣物库够不够用（方案 §5.2） */
   coverage: CoverageReport
   safety: SafetyReport
+  /** 地理与气候上下文（方案 §4，第三步） */
+  geo: GeoClimateContext
   dayScore: number
   reasons: ReasonCode[]
 }

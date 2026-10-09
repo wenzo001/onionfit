@@ -179,6 +179,14 @@ export const DATA_QUALITY = {
   synthetic: 0.4,
 }
 
+/** 地理与气候上下文（方案 §4）：只用天气源已有位置字段；缺位置就降置信度、不猜气候带 */
+export const GEO = {
+  /** 天气源带有效位置（lat/lon）时的地理层置信度 */
+  confidenceWithLocation: 1,
+  /** 位置缺失时的地理层置信度：半球 / 季节无法判断，退通用模型 */
+  confidenceWithoutLocation: 0.5,
+}
+
 /** 覆盖判定分档：衣物库撑不住时要如实说不够 */
 export const COVERAGE = {
   /**

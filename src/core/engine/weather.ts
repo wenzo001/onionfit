@@ -53,6 +53,7 @@ function kindOf(report: WeatherReport, i: number): WeatherKind {
 export function buildWeatherContext(report: WeatherReport): WeatherContext {
   const hourly = report.hourly
   const hasHourly = report.hasHourlyForecast && hourly.length > 0
+  const day1 = report.daily[0]
 
   let points: HourPoint[] = []
   if (hasHourly) {
@@ -72,12 +73,18 @@ export function buildWeatherContext(report: WeatherReport): WeatherContext {
       humidityOk: h.humidityPercent >= 0,
     }))
   } else {
-    // 降级：以 current 为基础做昼夜滞后合成（requirements 8.2 syntheticTemperature 思路）
-    const base = report.current.temperatureC
+    // 降级：按当日最低 / 最高温 + 日出日落生成昼夜曲线（第三步起不再固定 ±6℃）；
+    // 峰值取日照中点后 2 小时（地表热滞后），谷值落在其 12 小时对侧
+    const tMin = Number.isFinite(day1.minC) ? day1.minC : report.current.temperatureC
+    const tMax = Number.isFinite(day1.maxC) ? day1.maxC : report.current.temperatureC
+    const mid = (tMin + tMax) / 2
+    const amp = Math.max(0, (tMax - tMin) / 2)
+    const sunriseH = clockHours(day1.sunrise, 6.5)
+    const sunsetH = clockHours(day1.sunset, 18.5)
+    const peakH = sunsetH > sunriseH ? (sunriseH + sunsetH) / 2 + 2 : 14
     points = Array.from({ length: 24 }, (_, i) => ({
       hour: i,
-      // 简化昼夜曲线：正午最暖、凌晨最凉
-      temperatureC: Math.round((base + 6 * Math.sin(((i - 9) / 24) * 2 * Math.PI)) * 10) / 10,
+      temperatureC: Math.round((mid + amp * Math.cos(((i - peakH) / 24) * 2 * Math.PI)) * 10) / 10,
       humidityPercent: report.current.humidityPercent,
       windSpeedMs: report.current.windSpeedMs,
       precipitationMm: 0,
@@ -92,7 +99,6 @@ export function buildWeatherContext(report: WeatherReport): WeatherContext {
     }))
   }
 
-  const day1 = report.daily[0]
   const dayRainChanceMax = day1.rainChancePercent
 
   const hourIndex = new Map(points.map((p) => [p.hour, p]))
@@ -126,4 +132,12 @@ export function daySpanRange(ctx: WeatherContext): { hour: number; min: number; 
     if (p.temperatureC > ctx.day[maxH].temperatureC) maxH = i
   })
   return { hour: maxH, min: ctx.day[minH].temperatureC, max: ctx.day[maxH].temperatureC }
+}
+
+/** "06:10" 或 ISO 时间串 → 小时小数（6.17）；取首个 HH:MM，解析失败用兜底值 */
+function clockHours(t: string, fallback: number): number {
+  const m = /(\d{1,2}):(\d{2})/.exec(t ?? '')
+  if (!m) return fallback
+  const h = Number(m[1]) + Number(m[2]) / 60
+  return Number.isFinite(h) ? h : fallback
 }

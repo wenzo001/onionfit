@@ -14,6 +14,7 @@ import type {
   WeatherReport,
 } from '../types'
 import { buildWeatherContext, type WeatherContext } from './weather'
+import { buildGeoClimate } from './geo'
 import { buildSolarContext } from './solar'
 import { resolvePerson } from './person'
 import { resolveActivity } from './activity'
@@ -40,6 +41,8 @@ export interface PlanInput {
 /** 主入口：生成今日推荐 */
 export function plan({ report, settings, now = new Date() }: PlanInput): OutfitRecommendation {
   const ctx = buildWeatherContext(report)
+  // 地理层只影响置信度与解释，不改穿衣结论（方案 §4：缺位置不猜气候带）
+  const geo = buildGeoClimate(report, now)
   const nowHour = now.getHours()
   const person = resolvePerson(settings)
   const activity = resolveActivity(settings.activity)
@@ -129,8 +132,10 @@ export function plan({ report, settings, now = new Date() }: PlanInput): OutfitR
       capacityFor(slots, need),
       ctx.hasHourly,
       relaxedCodes,
+      geo.confidence,
     ),
     safety,
+    geo,
     dayScore: score,
     reasons: flattenReasons(demand.reasons),
   }
@@ -198,8 +203,10 @@ export function buildCoverage(
   capacityClo: number,
   hourly: boolean,
   relaxed: string[],
+  geoConfidence = 1,
 ): CoverageReport {
-  const confidence = hourly ? DATA_QUALITY.withHourly : DATA_QUALITY.synthetic
+  const dataQuality = hourly ? DATA_QUALITY.withHourly : DATA_QUALITY.synthetic
+  const confidence = Math.round(dataQuality * geoConfidence * 100) / 100
   const round2 = (v: number) => Math.round(v * 100) / 100
   const required = round2(requiredClo)
   const shortfall = Math.max(0, round2(requiredClo - availableClo))
