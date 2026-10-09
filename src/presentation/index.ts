@@ -12,6 +12,8 @@ import type {
   DemandVector,
   DayPart,
   ExposureHabit,
+  FeedbackEntry,
+  FeedbackKind,
   HeatSensitivity,
   HourlyEnvironment,
   LayerRole,
@@ -40,7 +42,7 @@ import { CATALOG } from '@/core/catalog'
 import { computeAssembly, scoreDetail as engineScoreDetail } from '@/core/engine/scoring'
 import { neutralPrefs, resolvePrefs } from '@/core/engine/prefs'
 import { SELECTABLE_ACTIVITIES, resolveActivity } from '@/core/engine/activity'
-import { EXPOSURE_HABIT, UMBRELLA } from '@/core/config'
+import { EXPOSURE_HABIT, FEEDBACK, UMBRELLA } from '@/core/config'
 import { fmtMinutes } from '@/core/engine/exposure'
 
 // ===== 基础格式化 =====
@@ -769,9 +771,10 @@ export const ROLE_LABEL: Record<ApparelLayer['role'], string> = {
 // ===== 为什么是这套（deck 13）：每条理由都标出处 =====
 // 出处枚举与方案 §9 reasons[].source 同源；句子本身全部来自引擎，presentation 只做归类与拼接
 
-export type WhySource = 'weather' | 'profile' | 'safety' | 'style' | 'fallback'
+export type WhySource = 'stability' | 'weather' | 'profile' | 'safety' | 'style' | 'fallback'
 
 export const WHY_SOURCE_LABEL: Record<WhySource, string> = {
+  stability: '沿用',
   weather: '天气',
   profile: '个人',
   safety: '安全',
@@ -842,7 +845,12 @@ export function whyReasons(r: OutfitRecommendation, settings?: UserSettings): Wh
     }
   }
 
-  const out: WhyReason[] = weather.slice(0, 4).map((text) => ({ source: 'weather' as const, text }))
+  const out: WhyReason[] = []
+  // 沿用是这一天最直接的理由（deck 15 滞回口径）；引擎只报事实，句子由这里拼
+  if (r.reusedPrevious) {
+    out.push({ source: 'stability', text: '轻微天气变化不换装：沿用上一套（逐槽仍合格，差异在容差内）' })
+  }
+  out.push(...weather.slice(0, 4).map((text) => ({ source: 'weather' as const, text })))
 
   if (settings) {
     const act = resolveActivity(settings.activity)
@@ -886,6 +894,62 @@ export function whyReasons(r: OutfitRecommendation, settings?: UserSettings): Wh
 
   if (!out.length) out.push({ source: 'fallback', text: '今天没有突出的需求项，按中性组合配的' })
   return out
+}
+
+// ===== 这套准吗：反馈闭环 + 滞回（deck 15） =====
+// 4 个胶囊来自设计稿；「偏热 / 闷」是一次点击记两条（HOT + STUFFY 同刻 = 一批）。
+// 说明句的数字全部取 FEEDBACK 配置（步长/上限一个源），句子不写死数字。
+
+export const FEEDBACK_CHIPS: { label: string; kinds: FeedbackKind[] }[] = [
+  { label: '偏冷', kinds: ['COLD'] },
+  { label: '偏热 / 闷', kinds: ['HOT', 'STUFFY'] },
+  { label: '不符合场合', kinds: ['OFF_OCCASION'] },
+  { label: '很合适', kinds: ['JUST_RIGHT'] },
+]
+
+export const FEEDBACK_FOOTNOTE =
+  '只小步调整、设上下限、随时可撤销。单次反馈不改安全阈值，也不改天气事实。'
+
+export const HYSTERESIS = {
+  title: '轻微天气变化不换装',
+  example: '昨天 12° 薄毛衣 + 外套 → 今天 11° 沿用那套',
+  upgrade: '只有明显改善舒适度、新增安全要求、或原方案违反硬约束时，才允许大幅换装',
+  urgent: '暴雨 / 强风 / 极端温度 / UV 升高 → 立即调整，不等滞回',
+}
+
+export interface LastFeedback {
+  label: string
+  kinds: FeedbackKind[]
+}
+
+/** 最后一批点击（同刻多条 = 一批）换成人话；空历史 → null */
+export function lastFeedback(history: FeedbackEntry[] | undefined): LastFeedback | null {
+  if (!history?.length) return null
+  const at = history[history.length - 1].at
+  const kinds = history.filter((x) => x.at === at).map((x) => x.kind)
+  const set = new Set(kinds)
+  const chip = FEEDBACK_CHIPS.find((c) => c.kinds.every((k) => set.has(k)))
+  return chip ? { label: chip.label, kinds } : null
+}
+
+/** 该批反馈「接下来会发生什么」（步长与上限来自 FEEDBACK 配置） */
+export function feedbackNote(kinds: FeedbackKind[]): string {
+  const s = new Set(kinds)
+  if (s.has('COLD')) {
+    return `下次同样天气会多加 ${FEEDBACK.warmthStepClo} clo —— 上限 ${FEEDBACK.warmthMaxClo} clo，不会一路加上去。`
+  }
+  if (s.has('HOT') || s.has('STUFFY')) {
+    return `下次同样天气会少要 ${FEEDBACK.warmthStepClo} clo、更看重透气 —— 上限各 ${FEEDBACK.warmthMaxClo}，不会一路加上去。`
+  }
+  if (s.has('OFF_OCCASION')) {
+    return `下次同样场合会更看重正式度 —— 每步 ${FEEDBACK.occasionStep}，上限 ${FEEDBACK.occasionMax}，不会一路加上去。`
+  }
+  return `相似天气下更容易沿用这套 —— 每步 ${FEEDBACK.reuseStep} 分，上限 ${FEEDBACK.reuseMax} 分。`
+}
+
+/** 沿用当天的活状态句（滞回块里显示「今天为什么没换」） */
+export function hysteresisStateLine(r: OutfitRecommendation): string | null {
+  return r.reusedPrevious ? '今天：沿用上一套（每层仍合格，差异在容差内）' : null
 }
 
 // ===== 这套好在哪：8 个分项 =====

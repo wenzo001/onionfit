@@ -27,6 +27,8 @@ export interface AssembledOutfit {
   breakdown: ScoreBucket[]
   /** 被放宽的硬约束 code（合格推荐不应出现） */
   relaxedCodes: string[]
+  /** 本次是否来自沿用上次那套（reuseIfStable 命中；界面解释「沿用」用） */
+  reusedPrevious: boolean
 }
 
 export interface ScoreDetail {
@@ -78,7 +80,8 @@ export function assembleOutfit(
   })
 
   const polished = polishPath(paths[0], slots, candidates, demand, need, prefs)
-  const best = reuseIfStable(polished, slots, demand, need, prefs) ?? polished
+  const prev = reuseIfStable(polished, slots, demand, need, prefs)
+  const best = prev ?? polished
   const assembly = computeAssembly(best.items, best.roles)
   // 槽位产生原因透传到层：界面「这层为什么存在」读的是真实决策依据，不是猜测
   attachSlotReasons(assembly, slots)
@@ -89,6 +92,7 @@ export function assembleOutfit(
     score: detail.total,
     breakdown: detail.buckets,
     relaxedCodes: best.relaxed,
+    reusedPrevious: prev !== null,
   }
 }
 
@@ -200,7 +204,8 @@ function reuseIfStable(
   const fitPrefs: ResolvedPrefs = { ...prefs, previousItemIds: null }
   const prevScore = scoreAssembly(computeAssembly(items, roles), demand, need, fitPrefs)
   const bestScore = scoreAssembly(computeAssembly(best.items, best.roles), demand, need, fitPrefs)
-  if (prevScore < bestScore - STABILITY.reuseMargin) return null
+  // 「很合适」累计放宽的容差只加在沿用一侧；硬条件（保暖/防风/防雨/舒适窗）照旧先过
+  if (prevScore < bestScore - (STABILITY.reuseMargin + prefs.reuseBonus)) return null
   return { items, roles, used, relaxed: [] }
 }
 

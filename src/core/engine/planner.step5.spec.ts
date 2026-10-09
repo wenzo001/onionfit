@@ -242,6 +242,51 @@ describe('S5-6 稳定性：天气小波动沿用旧组合，大变化和雨天�
   })
 })
 
+describe('S5-8「很合适」反馈放宽容差（方案 §6.1）：小步、封顶，其余反馈不放宽', () => {
+  // 探针实测（A4 场景扫描，基础分口径）：5→8℃ 差 ∈ (3,4]；12→15℃ 差 ∈ (4,5]
+  const jr = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({ kind: 'JUST_RIGHT' as const, at: `2026-09-2${i}` }))
+
+  it('5→8℃：没反馈整套换；一条「很合适」就沿用（+1 分容差）', () => {
+    const ids = chosenIds(planAt({ mean: 5, amp: 4, windMs: 2 }))
+    const fresh = planAt({ mean: 8, amp: 4, windMs: 2 }, { previousItemIds: ids })
+    expect(chosenIds(fresh)).not.toEqual(ids)
+    expect(fresh.reusedPrevious).toBe(false)
+    const loved = planAt({ mean: 8, amp: 4, windMs: 2 }, { previousItemIds: ids, feedbackHistory: jr(1) })
+    expect(chosenIds(loved)).toEqual(ids)
+    expect(loved.reusedPrevious).toBe(true)
+  })
+
+  it('12→15℃：差距更大，一条不够、两条才沿用；五条仍封顶 +2', () => {
+    const ids = chosenIds(planAt({ mean: 12, amp: 4, windMs: 2 }))
+    expect(
+      chosenIds(planAt({ mean: 15, amp: 4, windMs: 2 }, { previousItemIds: ids, feedbackHistory: jr(1) })),
+    ).not.toEqual(ids)
+    expect(
+      chosenIds(planAt({ mean: 15, amp: 4, windMs: 2 }, { previousItemIds: ids, feedbackHistory: jr(2) })),
+    ).toEqual(ids)
+    expect(
+      chosenIds(planAt({ mean: 15, amp: 4, windMs: 2 }, { previousItemIds: ids, feedbackHistory: jr(5) })),
+    ).toEqual(ids)
+  })
+
+  it('闷反馈不动容差：同样 5→8℃，STUFFY×3 仍整套换', () => {
+    const ids = chosenIds(planAt({ mean: 5, amp: 4, windMs: 2 }))
+    const stuffy = Array.from({ length: 3 }, (_, i) => ({ kind: 'STUFFY' as const, at: `2026-09-2${i}` }))
+    const r = planAt({ mean: 8, amp: 4, windMs: 2 }, { previousItemIds: ids, feedbackHistory: stuffy })
+    expect(chosenIds(r)).not.toEqual(ids)
+    expect(r.reusedPrevious).toBe(false)
+  })
+
+  it('沿用旗标：无 previousItemIds 时 false；12→13℃ 命中沿用为 true', () => {
+    expect(planAt({ mean: 12, amp: 4, windMs: 2 }).reusedPrevious).toBe(false)
+    const r1 = planAt({ mean: 12, amp: 4, windMs: 2 })
+    const r2 = planAt({ mean: 13, amp: 4, windMs: 2 }, { previousItemIds: chosenIds(r1) })
+    expect(r2.reusedPrevious).toBe(true)
+    expect(chosenIds(r2)).toEqual(chosenIds(r1))
+  })
+})
+
 describe('S5-7 场景矩阵：一致性闸门（7 温度 × 雨 × 3 风 × 2 UV × 9 活动 = 756 组）', () => {
   it('全部场景满足：分数域、分项和=dayScore、件不重复、覆盖判定同向、雨天壳在场', { timeout: 120_000 }, () => {
     const temps = [-15, -5, 0, 8, 15, 25, 33]

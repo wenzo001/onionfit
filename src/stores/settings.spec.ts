@@ -45,4 +45,11 @@ describe('settings store：12 维全量透传', () => {
     s.set('outTime', '')
     expect(s.settings.outTime).toBe(null)
   })
+
+  it('replace 整体写入（写回上一套/展示记录用，一次更新而不是逐键）', () => {
+    const s = useSettingsStore()
+    s.replace({ ...DEFAULT_SETTINGS, previousItemIds: ['a1'], lastShown: { ids: ['a1'], date: '2026-10-09' } })
+    expect(s.settings.previousItemIds).toEqual(['a1'])
+    expect(s.settings.lastShown).toEqual({ ids: ['a1'], date: '2026-10-09' })
+  })
 })

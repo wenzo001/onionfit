@@ -12,7 +12,8 @@ const props = defineProps<{ rec: OutfitRecommendation; settings?: UserSettings }
 const reasons = computed(() => whyReasons(props.rec, props.settings))
 const alt = computed(() => thickAlternative(props.rec, props.settings))
 
-const TONE: Record<WhySource, 'blue' | 'mint' | 'pink' | 'yellow' | 'plain'> = {
+const TONE: Record<WhySource, 'orange' | 'blue' | 'mint' | 'pink' | 'yellow' | 'plain'> = {
+  stability: 'orange',
   weather: 'blue',
   profile: 'mint',
   safety: 'pink',

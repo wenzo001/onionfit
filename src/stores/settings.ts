@@ -81,6 +81,11 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   }
 
+  /** 整体替换（引擎写回上一套/展示记录用；一次更新而不是逐键） */
+  function replace(next: UserSettings) {
+    state.value = next
+  }
+
   /** 通用赋值：时间空串归一化为 null（= 用默认 07:30 / 18:00），其余原样写入 */
   function set(key: keyof UserSettings, value: unknown) {
     if (key === 'outTime' || key === 'homeTime') {
@@ -105,6 +110,7 @@ export const useSettingsStore = defineStore('settings', () => {
     isOnboarded,
     completeOnboarding,
     apply,
+    replace,
     set,
     clearSchedule,
   }

@@ -84,6 +84,7 @@ export function plan({ report, settings, now = new Date() }: PlanInput): OutfitR
     score,
     breakdown,
     relaxedCodes,
+    reusedPrevious,
   } = assembleOutfit(slots, candidates, demand.vector, need, prefs)
 
   // 此刻穿着与时间线共用同一条逐时序列（方案 §8.2：两处判据必须一致）
@@ -125,6 +126,7 @@ export function plan({ report, settings, now = new Date() }: PlanInput): OutfitR
       requiredMaxClo: designHour.requiredClo,
     },
     dayOutfit,
+    reusedPrevious,
     nowOutfit,
     wornNowCount: wornNow.length,
     wornNowRoles: wornNow.map((l) => l.role),

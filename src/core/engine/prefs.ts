@@ -30,6 +30,8 @@ export interface ResolvedPrefs {
   breathBias: number
   /** 反馈派生：正式度权重抬升 0..0.3（「不符合场合」） */
   occasionBias: number
+  /** 反馈派生：「很合适」累计放宽的复用容差（分，0..2）；仍必过每槽硬条件 */
+  reuseBonus: number
   /** 上一次推荐的实际入选项 id；null = 无历史（多样性/复用不产生信号） */
   previousItemIds: string[] | null
 }
@@ -47,6 +49,7 @@ export function neutralPrefs(): ResolvedPrefs {
     warmthBiasClo: 0,
     breathBias: 0,
     occasionBias: 0,
+    reuseBonus: 0,
     previousItemIds: null,
   }
 }
@@ -71,6 +74,7 @@ export function resolvePrefs(settings: UserSettings): ResolvedPrefs {
     ),
     breathBias: round2(Math.min(FEEDBACK.breathMax, count('STUFFY') * FEEDBACK.breathStep)),
     occasionBias: round2(Math.min(FEEDBACK.occasionMax, count('OFF_OCCASION') * FEEDBACK.occasionStep)),
+    reuseBonus: Math.min(FEEDBACK.reuseMax, count('JUST_RIGHT') * FEEDBACK.reuseStep),
     previousItemIds: settings.previousItemIds?.length ? settings.previousItemIds : null,
   }
 }
@@ -87,11 +91,49 @@ export function applyFeedback(settings: UserSettings, kind: FeedbackKind, at: st
   return { ...settings, feedbackHistory: trimmed }
 }
 
-/** 撤销最后一条反馈（交付包屏 15 的「撤销」）；没有可撤的返回原设置 */
+/** 撤销最后一次反馈（交付包屏 15 的「撤销」）；同刻多条（一次点击记两种感受）视为一批一起撤 */
 export function revokeLastFeedback(settings: UserSettings): UserSettings {
   const history = settings.feedbackHistory ?? []
   if (!history.length) return settings
-  return { ...settings, feedbackHistory: history.slice(0, -1) }
+  const at = history[history.length - 1].at
+  let end = history.length
+  while (end > 0 && history[end - 1].at === at) end--
+  return { ...settings, feedbackHistory: history.slice(0, end) }
+}
+
+/** 本地日期键 YYYY-MM-DD（跨天判定不用 UTC，避免时区把凌晨算成前一天） */
+export function dateKey(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+/** 两套 id 是否同一套（不看重顺序） */
+export function sameIds(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false
+  const set = new Set(b)
+  return a.every((id) => set.has(id))
+}
+
+/**
+ * 跨天时把「最近展示的一套」抬进 previousItemIds（deck 15「轻微天气变化不换装」的输入）。
+ * 同一天不抬 —— 当天多样性分对比的应是昨天那套，而不是自己；无变化返回 null（不写）。
+ */
+export function rollPreviousItems(settings: UserSettings, planDate: string): UserSettings | null {
+  const shown = settings.lastShown
+  if (!shown?.ids?.length) return null
+  if (shown.date === planDate) return null
+  if (sameIds(settings.previousItemIds ?? [], shown.ids)) return null
+  return { ...settings, previousItemIds: [...shown.ids] }
+}
+
+/** 记录本次展示的整套（输出侧调用）；无变化返回 null（幂等，不会形成写循环） */
+export function recordShown(settings: UserSettings, ids: string[], planDate: string): UserSettings | null {
+  if (!ids.length) return null
+  const shown = settings.lastShown
+  if (shown && shown.date === planDate && sameIds(shown.ids, ids)) return null
+  return { ...settings, lastShown: { ids: [...ids], date: planDate } }
 }
 
 // ---- 标签命中助手（0-1；缺失标签按中性回退，不判负） ----

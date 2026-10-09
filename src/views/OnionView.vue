@@ -7,6 +7,7 @@ import SectionTitle from '@/components/SectionTitle.vue'
 import DemandBars from '@/components/DemandBars.vue'
 import WhyCard from '@/components/WhyCard.vue'
 import WhyThisCard from '@/components/WhyThisCard.vue'
+import FeedbackCard from '@/components/FeedbackCard.vue'
 import CheckupCard from '@/components/CheckupCard.vue'
 import CoverageCard from '@/components/CoverageCard.vue'
 import LayerCard from '@/components/LayerCard.vue'
@@ -73,6 +74,16 @@ const states = computed(() => activeStates.value.filter((s) => s.scope !== 'time
           :rec="rec"
           :settings="settings.settings"
         />
+      </section>
+
+      <section class="col">
+        <SectionTitle
+          title="这套准吗"
+          sub="轻量反馈闭环，不引入机器学习"
+        />
+        <InkCard class="pad">
+          <FeedbackCard />
+        </InkCard>
       </section>
 
       <section class="col">

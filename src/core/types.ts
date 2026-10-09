@@ -151,6 +151,8 @@ export interface UserSettings {
   feedbackHistory?: FeedbackEntry[]
   /** 上一次推荐的实际入选项 id（稳定性/多样性输入；缺省 = 无历史，不产生信号） */
   previousItemIds?: string[]
+  /** 最近一次展示的整套与本地日期（跨天时抬进 previousItemIds；当天不抬 —— 当天分对比的是昨天那套，不是自己） */
+  lastShown?: { ids: string[]; date: string } | null
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -167,6 +169,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   exposureHabit: 'SHORT_OUTDOOR',
   sweat: 'AVERAGE',
   feedbackHistory: [],
+  lastShown: null,
 }
 
 // ===== 城市与应用快照 =====
@@ -465,6 +468,8 @@ export interface OutfitRecommendation {
     requiredMaxClo: number
   }
   dayOutfit: OutfitAssembly
+  /** 本次 dayOutfit 是否来自沿用上一套（previousItemIds 命中且逐槽合格） */
+  reusedPrevious: boolean
   nowOutfit: OutfitAssembly
   wornNowCount: number
   wornNowRoles: LayerRole[]

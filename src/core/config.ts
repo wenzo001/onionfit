@@ -367,6 +367,10 @@ export const FEEDBACK = {
   /** 「不符合场合」每步加大的正式度权重 */
   occasionStep: 0.1,
   occasionMax: 0.3,
+  /** 「很合适」每步放宽的复用容差（分）：提高沿用上一套的概率 */
+  reuseStep: 1,
+  /** 复用容差上限（分）—— 仍必过每槽硬条件与天气事实 */
+  reuseMax: 2,
   /** 反馈历史保留条数上限（防止无限增长） */
   maxHistory: 30,
 }
