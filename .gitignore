@@ -25,3 +25,7 @@ test-results
 # 系统文件
 .DS_Store
 Thumbs.db
+
+# AOCI agent host integration (machine-bound; do not commit)
+.mcp.json
+.mcp.json.backup.*

@@ -1,0 +1,642 @@
+{
+  "version": 1,
+  "created_at": "2026-10-08T05:18:47Z",
+  "updated_at": "2026-10-08T05:18:47Z",
+  "files": {
+    ".gitattributes": {
+      "role": "index",
+      "sha256": "21fa16a2122e2b0360b47502c577428b645437e08e9e87ffba661f84853cb476",
+      "size": 291,
+      "normalized_sha256": "21fa16a2122e2b0360b47502c577428b645437e08e9e87ffba661f84853cb476"
+    },
+    ".github/workflows/deploy.yml": {
+      "role": "index",
+      "sha256": "58f1e4d6b26a563bdfc7d79e1b5ea1d932f51243ffd22d1b678615d36fc03e4d",
+      "size": 1676,
+      "normalized_sha256": "58f1e4d6b26a563bdfc7d79e1b5ea1d932f51243ffd22d1b678615d36fc03e4d"
+    },
+    ".gitignore": {
+      "role": "index",
+      "sha256": "8377d696142dd91eba5d8dd2822d5e51d962c37975585485b28df1f5511e87b1",
+      "size": 413,
+      "normalized_sha256": "8377d696142dd91eba5d8dd2822d5e51d962c37975585485b28df1f5511e87b1"
+    },
+    "AGENTS.md": {
+      "role": "index",
+      "sha256": "ddb50101a5be7eb54bde0bdccb2ce15fbac13a0efed1b2851adc248c7a39bcb7",
+      "size": 13258,
+      "normalized_sha256": "ddb50101a5be7eb54bde0bdccb2ce15fbac13a0efed1b2851adc248c7a39bcb7"
+    },
+    "README.md": {
+      "role": "index",
+      "sha256": "40ef6f04533b166c135e21213e84d4cf3888cfae8b8b3c89dac83ab1a5331ab3",
+      "size": 3838,
+      "normalized_sha256": "40ef6f04533b166c135e21213e84d4cf3888cfae8b8b3c89dac83ab1a5331ab3"
+    },
+    "aoci.code.txt": {
+      "role": "index",
+      "sha256": "12cbc237b863041b3ab7b6c6330091964cb014a20e624ec1f88de6056aed56c2",
+      "size": 21,
+      "normalized_sha256": "12cbc237b863041b3ab7b6c6330091964cb014a20e624ec1f88de6056aed56c2"
+    },
+    "aoci.meta.txt": {
+      "role": "index",
+      "sha256": "fbc304fa05182547e96f1f8404c7c30ad6c366bba9589523f1019c2c1da0427c",
+      "size": 1989,
+      "normalized_sha256": "fbc304fa05182547e96f1f8404c7c30ad6c366bba9589523f1019c2c1da0427c"
+    },
+    "aoci.txt": {
+      "role": "index",
+      "sha256": "61a0ee817d93ee196f23f5a86c90b1b361359dd7689b43166d40c8016673c26a",
+      "size": 297,
+      "normalized_sha256": "61a0ee817d93ee196f23f5a86c90b1b361359dd7689b43166d40c8016673c26a"
+    },
+    "docs/umbrella-decision-brief.md": {
+      "role": "index",
+      "sha256": "77e90e36ee34e5c085dbc41d27b1117f87f2cf75754b3fe4ff0299eb27f5f6cd",
+      "size": 9176,
+      "normalized_sha256": "77e90e36ee34e5c085dbc41d27b1117f87f2cf75754b3fe4ff0299eb27f5f6cd"
+    },
+    "index.html": {
+      "role": "index",
+      "sha256": "bf4a8d40ee47b5de009c14ab5956e4e3f5ba20572a6c6e90d986ea4929a0c58e",
+      "size": 1020,
+      "normalized_sha256": "bf4a8d40ee47b5de009c14ab5956e4e3f5ba20572a6c6e90d986ea4929a0c58e"
+    },
+    "package.json": {
+      "role": "index",
+      "sha256": "6292fd6f06f04a724f61079871e96fc76f2ab13a1f8a838a315b90a0f365d259",
+      "size": 819,
+      "normalized_sha256": "6292fd6f06f04a724f61079871e96fc76f2ab13a1f8a838a315b90a0f365d259"
+    },
+    "pnpm-lock.yaml": {
+      "role": "index",
+      "sha256": "65c7d63708c9bd06e94b911326026f0d665c3725212d5d100775caf233a102c1",
+      "size": 219658,
+      "normalized_sha256": "65c7d63708c9bd06e94b911326026f0d665c3725212d5d100775caf233a102c1"
+    },
+    "pnpm-workspace.yaml": {
+      "role": "index",
+      "sha256": "7c93a25c7a43878e10602899bc84e1283c8876fc85664bf79da6a330449958c5",
+      "size": 141,
+      "normalized_sha256": "7c93a25c7a43878e10602899bc84e1283c8876fc85664bf79da6a330449958c5"
+    },
+    "public/apple-touch-icon.png": {
+      "role": "index",
+      "sha256": "c5287d6fce49d587a0ecec4de96f44d90d740d9ec6f948c6b33027d5409e0e95",
+      "size": 39342
+    },
+    "public/favicon.svg": {
+      "role": "index",
+      "sha256": "86043cb19ed6dc83fd4714548ee6047718e7e67298234a8fa13ad529fd1bfb57",
+      "size": 491,
+      "normalized_sha256": "86043cb19ed6dc83fd4714548ee6047718e7e67298234a8fa13ad529fd1bfb57"
+    },
+    "public/pwa-192.png": {
+      "role": "index",
+      "sha256": "468c1ec090729c270547a2b57afc897ac0eb9f7fb1bfc2213a434d5c77b61360",
+      "size": 44396
+    },
+    "public/pwa-512.png": {
+      "role": "index",
+      "sha256": "54fa16be2fa569380fe8c50800acc267d94df943e0aef89c2310ee7fb217cca8",
+      "size": 238612
+    },
+    "requirements.md": {
+      "role": "index",
+      "sha256": "10a0af63b9abc4c35d90a7f2f7482740eb600b96010af6c71571730ef5f07b35",
+      "size": 44095,
+      "normalized_sha256": "10a0af63b9abc4c35d90a7f2f7482740eb600b96010af6c71571730ef5f07b35"
+    },
+    "src/App.vue": {
+      "role": "index",
+      "sha256": "2009fc8d712d66dbf1c3892aa92dd72c1f83ae566a8c176acbeb6396ac9d06b4",
+      "size": 574,
+      "normalized_sha256": "2009fc8d712d66dbf1c3892aa92dd72c1f83ae566a8c176acbeb6396ac9d06b4"
+    },
+    "src/cards/ActionRow.vue": {
+      "role": "index",
+      "sha256": "4b4540693163ae5e9375975fb0e3fd1852bd8782a685bbad6f5a8d02f3d999eb",
+      "size": 2897,
+      "normalized_sha256": "4b4540693163ae5e9375975fb0e3fd1852bd8782a685bbad6f5a8d02f3d999eb"
+    },
+    "src/cards/DaypartCard.vue": {
+      "role": "index",
+      "sha256": "73eb188a5d0131d787737426038aa523b60662fa07e165792306b58bc5ef8ef9",
+      "size": 1442,
+      "normalized_sha256": "73eb188a5d0131d787737426038aa523b60662fa07e165792306b58bc5ef8ef9"
+    },
+    "src/cards/DemandCard.vue": {
+      "role": "index",
+      "sha256": "4cb1426a0e15050513c88b1e0e419bdd3fa1994c71e70e856de75859d73f2a1f",
+      "size": 1873,
+      "normalized_sha256": "4cb1426a0e15050513c88b1e0e419bdd3fa1994c71e70e856de75859d73f2a1f"
+    },
+    "src/cards/ErrorBanner.vue": {
+      "role": "index",
+      "sha256": "810a0d963c723ea1a796a66fedd887b40bd42790336f02b6bc9da9e144d1889a",
+      "size": 635,
+      "normalized_sha256": "810a0d963c723ea1a796a66fedd887b40bd42790336f02b6bc9da9e144d1889a"
+    },
+    "src/cards/HeaderBar.vue": {
+      "role": "index",
+      "sha256": "bf13d2eb520de15ad348cda38faa17511363b5cb8ff8e46d3ca09ae053bcd3f7",
+      "size": 1735,
+      "normalized_sha256": "bf13d2eb520de15ad348cda38faa17511363b5cb8ff8e46d3ca09ae053bcd3f7"
+    },
+    "src/cards/Hero.vue": {
+      "role": "index",
+      "sha256": "0d8cc00cb16c0d4d07ee90ed3c05a83832c9634aa3f4ec0e978f6e711c843881",
+      "size": 1353,
+      "normalized_sha256": "0d8cc00cb16c0d4d07ee90ed3c05a83832c9634aa3f4ec0e978f6e711c843881"
+    },
+    "src/cards/HoursCard.vue": {
+      "role": "index",
+      "sha256": "df3799034ef4a8dd38cf165089d71f1a6b43b06d3105d26d9f569386a7fb85f6",
+      "size": 3598,
+      "normalized_sha256": "df3799034ef4a8dd38cf165089d71f1a6b43b06d3105d26d9f569386a7fb85f6"
+    },
+    "src/cards/MetaLine.vue": {
+      "role": "index",
+      "sha256": "1797f495faa26779ef4193100879fc66f1a5132f7245cff2b5bfafacc9117cff",
+      "size": 614,
+      "normalized_sha256": "1797f495faa26779ef4193100879fc66f1a5132f7245cff2b5bfafacc9117cff"
+    },
+    "src/cards/MetricsRow.vue": {
+      "role": "index",
+      "sha256": "d8911ebbdbfe773412e17429b65a85ab6d4d20645f22721f98a837085229d1c4",
+      "size": 1617,
+      "normalized_sha256": "d8911ebbdbfe773412e17429b65a85ab6d4d20645f22721f98a837085229d1c4"
+    },
+    "src/cards/OnionCard.vue": {
+      "role": "index",
+      "sha256": "c592668313072d15b2fbd686369b23743e33d0dad49d12715a6e6bf25f46243b",
+      "size": 3566,
+      "normalized_sha256": "c592668313072d15b2fbd686369b23743e33d0dad49d12715a6e6bf25f46243b"
+    },
+    "src/cards/OnionDiagram.vue": {
+      "role": "index",
+      "sha256": "edac9c37b5dc50aa6f6930c6e5ea362cfe139bf58d749dad1e1d2442617a9f9a",
+      "size": 2956,
+      "normalized_sha256": "edac9c37b5dc50aa6f6930c6e5ea362cfe139bf58d749dad1e1d2442617a9f9a"
+    },
+    "src/cards/SettingsSheet.vue": {
+      "role": "index",
+      "sha256": "927dd44c998e3abce2d0db37eaecd2937196c8ba0f6c87f0bdd47c905dccce06",
+      "size": 4048,
+      "normalized_sha256": "927dd44c998e3abce2d0db37eaecd2937196c8ba0f6c87f0bdd47c905dccce06"
+    },
+    "src/cards/TipsCard.vue": {
+      "role": "index",
+      "sha256": "4884760d714d2481362cf95ca056855ec96543a9ffd9eab0004e0ae40933c5bf",
+      "size": 3555,
+      "normalized_sha256": "4884760d714d2481362cf95ca056855ec96543a9ffd9eab0004e0ae40933c5bf"
+    },
+    "src/cards/TomorrowCard.vue": {
+      "role": "index",
+      "sha256": "94ce777618281a5a604aa5adc7f59146e0cc891a0ef3edad6f4afb916e6885ba",
+      "size": 804,
+      "normalized_sha256": "94ce777618281a5a604aa5adc7f59146e0cc891a0ef3edad6f4afb916e6885ba"
+    },
+    "src/cards/UmbrellaCard.vue": {
+      "role": "index",
+      "sha256": "0767a5dc05bbb0624ff80482af1efe0e3c4e50db22815186f627f3a73fdda166",
+      "size": 8055,
+      "normalized_sha256": "0767a5dc05bbb0624ff80482af1efe0e3c4e50db22815186f627f3a73fdda166"
+    },
+    "src/components/AppIcon.vue": {
+      "role": "index",
+      "sha256": "fa4b1d902adaee1f5dd460593685564b4ea22b4dd36fc604df8a086110c6a54d",
+      "size": 438,
+      "normalized_sha256": "fa4b1d902adaee1f5dd460593685564b4ea22b4dd36fc604df8a086110c6a54d"
+    },
+    "src/components/CountUpNumber.vue": {
+      "role": "index",
+      "sha256": "34de9d9f56a3e5ca242a56850158500774e9f75d5b87c5eb92e500742c5213f9",
+      "size": 836,
+      "normalized_sha256": "34de9d9f56a3e5ca242a56850158500774e9f75d5b87c5eb92e500742c5213f9"
+    },
+    "src/components/GarmentIcon.vue": {
+      "role": "index",
+      "sha256": "c9049490777274cbe8cb5cf148aab6dda0e4782f80761c7caeec0c51390eafa9",
+      "size": 921,
+      "normalized_sha256": "c9049490777274cbe8cb5cf148aab6dda0e4782f80761c7caeec0c51390eafa9"
+    },
+    "src/components/GlassCard.vue": {
+      "role": "index",
+      "sha256": "c997d7097616dff3e9fdeaf8ea3f64a45a588e693d3647585fa50258366174fd",
+      "size": 753,
+      "normalized_sha256": "c997d7097616dff3e9fdeaf8ea3f64a45a588e693d3647585fa50258366174fd"
+    },
+    "src/components/SegmentedPicker.vue": {
+      "role": "index",
+      "sha256": "9a87173a6be520155bba6dd2fbe97df269e5df3f017536a49771e49a3d3c58db",
+      "size": 4909,
+      "normalized_sha256": "9a87173a6be520155bba6dd2fbe97df269e5df3f017536a49771e49a3d3c58db"
+    },
+    "src/components/StaggerContainer.vue": {
+      "role": "index",
+      "sha256": "5cf7636be3f150b012303c064febe9c906667000840dae5d99cda1cb12d36b91",
+      "size": 1211,
+      "normalized_sha256": "5cf7636be3f150b012303c064febe9c906667000840dae5d99cda1cb12d36b91"
+    },
+    "src/components/TimePicker.vue": {
+      "role": "index",
+      "sha256": "9e7e8e7edc3b966b523b5b8a67ce37e4b48b2cd5a2a1b44340efb5d8757d035b",
+      "size": 1890,
+      "normalized_sha256": "9e7e8e7edc3b966b523b5b8a67ce37e4b48b2cd5a2a1b44340efb5d8757d035b"
+    },
+    "src/components/garments.ts": {
+      "role": "index",
+      "sha256": "a56d1f1823101b34641344e7afd1a31b6afcdc34deb55b766f82ac6622b703fa",
+      "size": 5973,
+      "normalized_sha256": "a56d1f1823101b34641344e7afd1a31b6afcdc34deb55b766f82ac6622b703fa"
+    },
+    "src/components/icons.ts": {
+      "role": "index",
+      "sha256": "ffb9846751c0cb7d233c5229a6c7b9275dc807df60fc6d02c2e5fdc0e52e71e7",
+      "size": 8024,
+      "normalized_sha256": "ffb9846751c0cb7d233c5229a6c7b9275dc807df60fc6d02c2e5fdc0e52e71e7"
+    },
+    "src/composables/palette.ts": {
+      "role": "index",
+      "sha256": "58798484b042fc9a2ba3a950e14ef0b4c318b052631d697aa6a5be184176e9f1",
+      "size": 1353,
+      "normalized_sha256": "58798484b042fc9a2ba3a950e14ef0b4c318b052631d697aa6a5be184176e9f1"
+    },
+    "src/composables/useHaptics.ts": {
+      "role": "index",
+      "sha256": "0bff8689f833dc3c1bf4f77620fde7e5fceae5313cbb55db3df3470ea999938d",
+      "size": 248,
+      "normalized_sha256": "0bff8689f833dc3c1bf4f77620fde7e5fceae5313cbb55db3df3470ea999938d"
+    },
+    "src/composables/usePullToRefresh.ts": {
+      "role": "index",
+      "sha256": "47ad94e781900aeeefa89505a00594953e7efa143332c7082c7d3124ce3e34f1",
+      "size": 2805,
+      "normalized_sha256": "47ad94e781900aeeefa89505a00594953e7efa143332c7082c7d3124ce3e34f1"
+    },
+    "src/composables/useTheme.ts": {
+      "role": "index",
+      "sha256": "f02205c08b4415d82ff21fb02cf12a570469bc616d5e6f65d4fcc00024e4537b",
+      "size": 203,
+      "normalized_sha256": "f02205c08b4415d82ff21fb02cf12a570469bc616d5e6f65d4fcc00024e4537b"
+    },
+    "src/core/catalog.ts": {
+      "role": "index",
+      "sha256": "ab4ebc1a22d9f4783ea150f472425fd17cd64ddee927ab8dc9f43b580db7319e",
+      "size": 10970,
+      "normalized_sha256": "ab4ebc1a22d9f4783ea150f472425fd17cd64ddee927ab8dc9f43b580db7319e"
+    },
+    "src/core/config.ts": {
+      "role": "index",
+      "sha256": "fe77f89a23cda481e31db184a69f1713eeb4cd899d2b01a3dc4925eaa4d22de3",
+      "size": 5826,
+      "normalized_sha256": "fe77f89a23cda481e31db184a69f1713eeb4cd899d2b01a3dc4925eaa4d22de3"
+    },
+    "src/core/engine/accessories.ts": {
+      "role": "index",
+      "sha256": "38fa6dd302a444bc3e5a122b4197397dcec518e6c3cb3e656eb897ebb4c4f746",
+      "size": 1499,
+      "normalized_sha256": "38fa6dd302a444bc3e5a122b4197397dcec518e6c3cb3e656eb897ebb4c4f746"
+    },
+    "src/core/engine/activity.ts": {
+      "role": "index",
+      "sha256": "069a937bc8952c1011cecbb2c2a9be1261e296537d554c3693eceab42c67c551",
+      "size": 1573,
+      "normalized_sha256": "069a937bc8952c1011cecbb2c2a9be1261e296537d554c3693eceab42c67c551"
+    },
+    "src/core/engine/layering.ts": {
+      "role": "index",
+      "sha256": "02965a5ef8ce5b65b2ea43bca4658de2b1a0a194062f2dfe5b87e2c202947b53",
+      "size": 3431,
+      "normalized_sha256": "02965a5ef8ce5b65b2ea43bca4658de2b1a0a194062f2dfe5b87e2c202947b53"
+    },
+    "src/core/engine/matching.ts": {
+      "role": "index",
+      "sha256": "b975f895894f63689d13090ea8c3a478948bba98892e635979c1ef733bd0b08f",
+      "size": 3154,
+      "normalized_sha256": "b975f895894f63689d13090ea8c3a478948bba98892e635979c1ef733bd0b08f"
+    },
+    "src/core/engine/person.ts": {
+      "role": "index",
+      "sha256": "8f8cd2263c455d83d5bdc427bbed471cf505241f2734eb84d004ec22cb5990da",
+      "size": 1375,
+      "normalized_sha256": "8f8cd2263c455d83d5bdc427bbed471cf505241f2734eb84d004ec22cb5990da"
+    },
+    "src/core/engine/planner.ts": {
+      "role": "index",
+      "sha256": "abcb496af368d839ffe79d8c5072b7d7f8f1f8eb3d08d38557b3c6e4bd48c378",
+      "size": 5693,
+      "normalized_sha256": "abcb496af368d839ffe79d8c5072b7d7f8f1f8eb3d08d38557b3c6e4bd48c378"
+    },
+    "src/core/engine/psychrometrics.ts": {
+      "role": "index",
+      "sha256": "780e265ac0fff6d4a32e0cb094294ce8f2d9b3f612fcfe592098232806052c3d",
+      "size": 3527,
+      "normalized_sha256": "780e265ac0fff6d4a32e0cb094294ce8f2d9b3f612fcfe592098232806052c3d"
+    },
+    "src/core/engine/requirement.ts": {
+      "role": "index",
+      "sha256": "99aa580c55e313729fe2fbb11a0024b319f32199e901ae8af74b746285fa4c5a",
+      "size": 4560,
+      "normalized_sha256": "99aa580c55e313729fe2fbb11a0024b319f32199e901ae8af74b746285fa4c5a"
+    },
+    "src/core/engine/safety.ts": {
+      "role": "index",
+      "sha256": "0226a68cd409f3c71af54cad4fb1e3fbe15cd0c2db5a7ee6573429bc714acb85",
+      "size": 3197,
+      "normalized_sha256": "0226a68cd409f3c71af54cad4fb1e3fbe15cd0c2db5a7ee6573429bc714acb85"
+    },
+    "src/core/engine/schedule.ts": {
+      "role": "index",
+      "sha256": "f35a04d9a0fb98b0c775a0d100c5216e8bc6ef7f502974b615c0b9e67f276ff3",
+      "size": 4939,
+      "normalized_sha256": "f35a04d9a0fb98b0c775a0d100c5216e8bc6ef7f502974b615c0b9e67f276ff3"
+    },
+    "src/core/engine/scoring.ts": {
+      "role": "index",
+      "sha256": "4314a9948265a10ee72129e0ed0f8fe1df86dee2830ce51d0b28c0bf331ab779",
+      "size": 4372,
+      "normalized_sha256": "4314a9948265a10ee72129e0ed0f8fe1df86dee2830ce51d0b28c0bf331ab779"
+    },
+    "src/core/engine/solar.ts": {
+      "role": "index",
+      "sha256": "70060dd3e60c818a48a41b5b88ece960e18baf72bab390c6293cf63cde2c3f68",
+      "size": 1991,
+      "normalized_sha256": "70060dd3e60c818a48a41b5b88ece960e18baf72bab390c6293cf63cde2c3f68"
+    },
+    "src/core/engine/thermal.ts": {
+      "role": "index",
+      "sha256": "924827f5f15b40702318b80f45e169570564e65e33ea9cef1507b90ee4db9318",
+      "size": 1384,
+      "normalized_sha256": "924827f5f15b40702318b80f45e169570564e65e33ea9cef1507b90ee4db9318"
+    },
+    "src/core/engine/umbrella.spec.ts": {
+      "role": "observe",
+      "sha256": "09e87f043e22b95c0128b8bdabc0be8f24760ca38e25ce254ffa3d957dc350c7",
+      "size": 7293,
+      "normalized_sha256": "09e87f043e22b95c0128b8bdabc0be8f24760ca38e25ce254ffa3d957dc350c7"
+    },
+    "src/core/engine/umbrella.ts": {
+      "role": "index",
+      "sha256": "4796296c0664d68cda744832df0c61d1b60a4d875c24dd402a6e7c1f5e9d8f50",
+      "size": 6410,
+      "normalized_sha256": "4796296c0664d68cda744832df0c61d1b60a4d875c24dd402a6e7c1f5e9d8f50"
+    },
+    "src/core/engine/weather.ts": {
+      "role": "index",
+      "sha256": "6dd3cc9c48ce43b066a2a19791f32d32ca0e06c4773fcceac73947a6ca890288",
+      "size": 4328,
+      "normalized_sha256": "6dd3cc9c48ce43b066a2a19791f32d32ca0e06c4773fcceac73947a6ca890288"
+    },
+    "src/core/types.ts": {
+      "role": "index",
+      "sha256": "3d12bdbbc14b2e9970f4c4a872816d1b4c2249a836134ce00f9655c0301d323a",
+      "size": 7479,
+      "normalized_sha256": "3d12bdbbc14b2e9970f4c4a872816d1b4c2249a836134ce00f9655c0301d323a"
+    },
+    "src/data/geo/citySearch.ts": {
+      "role": "index",
+      "sha256": "cb03c034d2d7ec79dc23cd913a809f2bd44a564eb6005ac87709b904e1ce21f1",
+      "size": 1137,
+      "normalized_sha256": "cb03c034d2d7ec79dc23cd913a809f2bd44a564eb6005ac87709b904e1ce21f1"
+    },
+    "src/data/geo/ipGeolocate.ts": {
+      "role": "index",
+      "sha256": "036213ed1af71ded65ba996de09613475cb4e9e7d3d8e66720315bebb5d24761",
+      "size": 1716,
+      "normalized_sha256": "036213ed1af71ded65ba996de09613475cb4e9e7d3d8e66720315bebb5d24761"
+    },
+    "src/data/geo/reverseGeo.ts": {
+      "role": "index",
+      "sha256": "0fddf20d53859aa462267dce226ccf5eea6d31034ff6b9031417d247f40a313a",
+      "size": 1196,
+      "normalized_sha256": "0fddf20d53859aa462267dce226ccf5eea6d31034ff6b9031417d247f40a313a"
+    },
+    "src/data/location.ts": {
+      "role": "index",
+      "sha256": "e6cbb977ac662e237f54ef85d8c55a57300447840e92e11475bd6f0d9923bcae",
+      "size": 3232,
+      "normalized_sha256": "e6cbb977ac662e237f54ef85d8c55a57300447840e92e11475bd6f0d9923bcae"
+    },
+    "src/data/openmeteo/index.ts": {
+      "role": "index",
+      "sha256": "537aaa0b62afbcb3b4e82a516009053702ccfddf8940681eb1ec41e3bf5938e6",
+      "size": 1686,
+      "normalized_sha256": "537aaa0b62afbcb3b4e82a516009053702ccfddf8940681eb1ec41e3bf5938e6"
+    },
+    "src/data/openmeteo/mapper.ts": {
+      "role": "index",
+      "sha256": "1fbf5ec524fb13bfdf68b09142216472468e3f6cf018826c65f10cffccfab545",
+      "size": 3939,
+      "normalized_sha256": "1fbf5ec524fb13bfdf68b09142216472468e3f6cf018826c65f10cffccfab545"
+    },
+    "src/data/openmeteo/solar.ts": {
+      "role": "index",
+      "sha256": "2b6bd56527e4fc9311fd064b871b0c0fbcf0de4352a22269821de7597203e744",
+      "size": 1702,
+      "normalized_sha256": "2b6bd56527e4fc9311fd064b871b0c0fbcf0de4352a22269821de7597203e744"
+    },
+    "src/data/openmeteo/types.ts": {
+      "role": "index",
+      "sha256": "398106e5a298a9255e10f5edff8a65bc850abdd4f2a0ebf23bb4b977be35d9c0",
+      "size": 1191,
+      "normalized_sha256": "398106e5a298a9255e10f5edff8a65bc850abdd4f2a0ebf23bb4b977be35d9c0"
+    },
+    "src/data/openmeteo/wmo.ts": {
+      "role": "index",
+      "sha256": "b39a10a8421f51515a3c16883062d9bdf05460f16dc594431e2abcf5ec5054d4",
+      "size": 883,
+      "normalized_sha256": "b39a10a8421f51515a3c16883062d9bdf05460f16dc594431e2abcf5ec5054d4"
+    },
+    "src/data/provider.ts": {
+      "role": "index",
+      "sha256": "f7dcc77230299d3f6a0a74e909e53ea8a6b30060d2ea146e87df46047d228fe1",
+      "size": 545,
+      "normalized_sha256": "f7dcc77230299d3f6a0a74e909e53ea8a6b30060d2ea146e87df46047d228fe1"
+    },
+    "src/data/qweather/index.ts": {
+      "role": "index",
+      "sha256": "82f593a181b50fefdbe8bfbdbdfcf78eafa800d18ca1a32177ac8fe68c1af72d",
+      "size": 814,
+      "normalized_sha256": "82f593a181b50fefdbe8bfbdbdfcf78eafa800d18ca1a32177ac8fe68c1af72d"
+    },
+    "src/data/snapshot.ts": {
+      "role": "index",
+      "sha256": "48becafce605bfd613263edb8b5af326416aa2ca27a1e8cab77997e5f318806c",
+      "size": 1430,
+      "normalized_sha256": "48becafce605bfd613263edb8b5af326416aa2ca27a1e8cab77997e5f318806c"
+    },
+    "src/env.d.ts": {
+      "role": "index",
+      "sha256": "6b41ef4628fa492a2efb257c4c388a956ada77182a33fc2e28c3fe7047087b28",
+      "size": 280,
+      "normalized_sha256": "6b41ef4628fa492a2efb257c4c388a956ada77182a33fc2e28c3fe7047087b28"
+    },
+    "src/main.ts": {
+      "role": "index",
+      "sha256": "496e1d0db582b2eeb6a19cdd1edbcc602074676d133e55aef42ab77d293fbd80",
+      "size": 666,
+      "normalized_sha256": "496e1d0db582b2eeb6a19cdd1edbcc602074676d133e55aef42ab77d293fbd80"
+    },
+    "src/presentation/index.ts": {
+      "role": "index",
+      "sha256": "498d591ae0066f8e0140265e1285521406f0c47a7abebb0bd80a6ca1191decb5",
+      "size": 6154,
+      "normalized_sha256": "498d591ae0066f8e0140265e1285521406f0c47a7abebb0bd80a6ca1191decb5"
+    },
+    "src/router.ts": {
+      "role": "index",
+      "sha256": "1dc4d7dc9347e04a6ebc522fec598b5cd727382354f53d1fcecf011a1b77312d",
+      "size": 362,
+      "normalized_sha256": "1dc4d7dc9347e04a6ebc522fec598b5cd727382354f53d1fcecf011a1b77312d"
+    },
+    "src/services/cityService.ts": {
+      "role": "index",
+      "sha256": "ad09a3f4f7bcfb257ab87bb93b994b69c7b91e830ea61543d43151ac63797933",
+      "size": 2274,
+      "normalized_sha256": "ad09a3f4f7bcfb257ab87bb93b994b69c7b91e830ea61543d43151ac63797933"
+    },
+    "src/services/weatherService.ts": {
+      "role": "index",
+      "sha256": "f3c5932d837e4e5d11fdc32bf6a52f174f74bd16c48da5914b1cc65bcd847168",
+      "size": 1945,
+      "normalized_sha256": "f3c5932d837e4e5d11fdc32bf6a52f174f74bd16c48da5914b1cc65bcd847168"
+    },
+    "src/stores/settings.ts": {
+      "role": "index",
+      "sha256": "278f1afbd5d6a4665a65db9adc54db89344887d9b95b1c6a9a0fba4fd42f713e",
+      "size": 3775,
+      "normalized_sha256": "278f1afbd5d6a4665a65db9adc54db89344887d9b95b1c6a9a0fba4fd42f713e"
+    },
+    "src/stores/weather.ts": {
+      "role": "index",
+      "sha256": "d8d4bf7f3fec4a25975f1110b8d31db2adf8bf0992d598670f302862ccdae086",
+      "size": 3337,
+      "normalized_sha256": "d8d4bf7f3fec4a25975f1110b8d31db2adf8bf0992d598670f302862ccdae086"
+    },
+    "src/styles/_glass.scss": {
+      "role": "index",
+      "sha256": "c1c85915869b86ad4e01e481ca661dd336cbc055b434e6c9239cd568e59600cc",
+      "size": 445,
+      "normalized_sha256": "c1c85915869b86ad4e01e481ca661dd336cbc055b434e6c9239cd568e59600cc"
+    },
+    "src/styles/_tokens.scss": {
+      "role": "index",
+      "sha256": "0325a176e336069fd9510c3880397df775164c7542f5a7d864d48617e7c2247c",
+      "size": 1071,
+      "normalized_sha256": "0325a176e336069fd9510c3880397df775164c7542f5a7d864d48617e7c2247c"
+    },
+    "src/styles/main.scss": {
+      "role": "index",
+      "sha256": "deb7077a7de9d0e05b98c81ae6f48888a3c13c777dee1d42e52b712650b397de",
+      "size": 1688,
+      "normalized_sha256": "deb7077a7de9d0e05b98c81ae6f48888a3c13c777dee1d42e52b712650b397de"
+    },
+    "src/views/CityPickerView.vue": {
+      "role": "index",
+      "sha256": "a3ccc15e333c3dc9011249339fc1e025ea7ed83420b6c8fa1686443123ee06cb",
+      "size": 6615,
+      "normalized_sha256": "a3ccc15e333c3dc9011249339fc1e025ea7ed83420b6c8fa1686443123ee06cb"
+    },
+    "src/views/HomeView.vue": {
+      "role": "index",
+      "sha256": "8c7bae9151947fa9352ce868e39fc58ba37f4ac5551dc2bee59d16e0a7761d02",
+      "size": 9958,
+      "normalized_sha256": "8c7bae9151947fa9352ce868e39fc58ba37f4ac5551dc2bee59d16e0a7761d02"
+    },
+    "tsconfig.json": {
+      "role": "index",
+      "sha256": "dd8e16b8cf0986f9846e62fb9732837017f25cb7f6032890ad64856718dc714c",
+      "size": 682,
+      "normalized_sha256": "dd8e16b8cf0986f9846e62fb9732837017f25cb7f6032890ad64856718dc714c"
+    },
+    "uno.config.ts": {
+      "role": "index",
+      "sha256": "ffbd0691e0a85d50f47042558346d5432ac16d902f2c47b6d60bfd8eaafe98c2",
+      "size": 478,
+      "normalized_sha256": "ffbd0691e0a85d50f47042558346d5432ac16d902f2c47b6d60bfd8eaafe98c2"
+    },
+    "vite.config.ts": {
+      "role": "index",
+      "sha256": "4ea71abf4b41e510b996ca47b4f3aaaaf03557076f94e64df371078ecb7c3a21",
+      "size": 1482,
+      "normalized_sha256": "4ea71abf4b41e510b996ca47b4f3aaaaf03557076f94e64df371078ecb7c3a21"
+    },
+    "vitest.config.ts": {
+      "role": "index",
+      "sha256": "d73430b80c3336e4a30597ab93159b46cd9724b151624b1ddcec0d72a7cef698",
+      "size": 466,
+      "normalized_sha256": "d73430b80c3336e4a30597ab93159b46cd9724b151624b1ddcec0d72a7cef698"
+    }
+  },
+  "managed_scope": {
+    "version": "managed-scope-baseline/v1",
+    "policy_identity": "c81414aa1ad20edc6cdd8c9d904678ca476240ca1a991b5d31759dcae114efd1",
+    "observe_change_policy": "review_required",
+    "budget_policy_identity": "15e9b37a6c57e9bf03c9df3d0d049eb5b9a7f5540f9d34960408114e2538a32d",
+    "budget_policy": {
+      "version": "cognition-budget-policy/v1",
+      "mode": "enforce",
+      "whole_index": {
+        "target_tokens": 200000,
+        "warning_tokens": 300000,
+        "max_tokens": 400000
+      },
+      "r": [
+        {
+          "min_c": 1,
+          "max_c": 4,
+          "target_tokens": 25,
+          "max_tokens": 50
+        },
+        {
+          "min_c": 5,
+          "max_c": 7,
+          "target_tokens": 45,
+          "max_tokens": 90
+        },
+        {
+          "min_c": 8,
+          "max_c": 8,
+          "target_tokens": 70,
+          "max_tokens": 140
+        },
+        {
+          "min_c": 9,
+          "max_c": 9,
+          "target_tokens": 90,
+          "max_tokens": 180
+        }
+      ],
+      "s": [
+        {
+          "min_c": 1,
+          "max_c": 4,
+          "target_tokens": 20,
+          "max_tokens": 40
+        },
+        {
+          "min_c": 5,
+          "max_c": 7,
+          "target_tokens": 40,
+          "max_tokens": 80
+        },
+        {
+          "min_c": 8,
+          "max_c": 8,
+          "target_tokens": 70,
+          "max_tokens": 140
+        },
+        {
+          "min_c": 9,
+          "max_c": 9,
+          "target_tokens": 100,
+          "max_tokens": 200
+        }
+      ]
+    },
+    "apply_authorization_mode": "auto"
+  }
+}
