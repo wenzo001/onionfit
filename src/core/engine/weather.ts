@@ -45,6 +45,22 @@ export interface WeatherContext {
 
 const NEG = -1
 
+/**
+ * 逐时时间戳 → 整点小时。
+ * 天气源给的是「城市当地时刻」的裸字符串（时区由 timezone 字段另外声明），
+ * 所以按字面读小时：既与设备时区无关，也容忍 2026-10-9 这类不补零日期
+ * （new Date 对它是 Invalid Date，小时会变成 NaN 并污染设计时刻与暴露窗口）。
+ */
+export function localHourOf(time: string, fallback = 0): number {
+  const m = /T(\d{1,2}):/.exec(time ?? '')
+  if (m) {
+    const h = Number(m[1])
+    if (h >= 0 && h <= 23) return h
+  }
+  const viaDate = new Date(time).getHours()
+  return Number.isFinite(viaDate) ? viaDate : fallback
+}
+
 function kindOf(report: WeatherReport, i: number): WeatherKind {
   return report.hourly[i]?.kind ?? report.current.condition
 }
@@ -58,7 +74,7 @@ export function buildWeatherContext(report: WeatherReport): WeatherContext {
   let points: HourPoint[] = []
   if (hasHourly) {
     points = hourly.map((h, i) => ({
-      hour: new Date(h.time).getHours(),
+      hour: localHourOf(h.time, i % 24),
       temperatureC: h.temperatureC,
       humidityPercent: h.humidityPercent,
       windSpeedMs: h.windSpeedMs,

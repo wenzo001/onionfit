@@ -21,6 +21,7 @@ import type {
   WeatherDay,
   WeatherKind,
 } from '@/core/types'
+import { localHourOf } from '@/core/engine/weather'
 
 // ===== 基础格式化 =====
 
@@ -355,7 +356,7 @@ export const CURVE_HINT = '橙点 = 脱衣'
 export function rainBand(hourly: HourlyEnvironment[]): { start: number; end: number } | null {
   let best: { start: number; end: number } | null = null
   let start = -1
-  const hourAt = (i: number) => new Date(hourly[i].time).getHours()
+  const hourAt = (i: number) => localHourOf(hourly[i].time, i % 24)
   const wetAt = (i: number) =>
     hourly[i].precipitationMmPerHour > 0.05 || hourly[i].precipitationProbabilityPercent >= 60
 

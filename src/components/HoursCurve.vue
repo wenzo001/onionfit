@@ -3,6 +3,7 @@
 // 让逻辑自己说话 ——「现在不冷却让你带外套」不用辩解，看图上哪个点最需要它
 import { computed } from 'vue'
 import { fmtTempC, rainBand } from '@/presentation'
+import { localHourOf } from '@/core/engine/weather'
 import type { HourlyEnvironment } from '@/core/types'
 
 const props = defineProps<{
@@ -25,7 +26,7 @@ const pts = computed(() => {
   const span = max - min || 1
   const x = (i: number) => PAD + (i / (hs.length - 1)) * (W - PAD * 2)
   const y = (t: number) => H - PAD - ((t - min) / span) * (H - PAD * 2)
-  const indexOfHour = (h: number) => hs.findIndex((p) => new Date(p.time).getHours() === h)
+  const indexOfHour = (h: number) => hs.findIndex((p, i) => localHourOf(p.time, i) === h)
   return {
     ok: true,
     min,
