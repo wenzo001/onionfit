@@ -1,5 +1,5 @@
 // OutfitScoringEngine：从候选组装一套完整穿搭并评分（确定性）
-// 组装 = 在所有槽位组合上做 beam 搜索取整卷最高分；逐槽都没有合格件时登记"被放宽"，不静默冒充合格推荐。
+// 组装 = beam 搜索取整卷最高分 + 搜后单件替换精修；逐槽都没有合格件时登记"被放宽"，不静默冒充合格推荐。
 // 评分按方案 §7.3 的分项满分制（合计 97；多样性 3 分与滞回一起排第五步）。
 // 默认偏好下风格/偏好分项取中性常数，不产生排序信号（与既有行为向后兼容）。
 
@@ -75,7 +75,7 @@ export function assembleOutfit(
     paths = pruneToBest(next, demand, need, prefs)
   })
 
-  const best = paths[0]
+  const best = polishPath(paths[0], slots, candidates, demand, need, prefs)
   const assembly = computeAssembly(best.items, best.roles)
   // 槽位产生原因透传到层：界面「这层为什么存在」读的是真实决策依据，不是猜测
   attachSlotReasons(assembly, slots)
@@ -111,6 +111,55 @@ function pruneToBest(
   }))
   scored.sort((a, b) => b.s - a.s)
   return scored.slice(0, MATCHING.beamWidth).map((x) => x.p)
+}
+
+/**
+ * 搜后精修：beam 按"前缀得分"剪枝，会丢掉"薄前缀 + 后补"的组合——
+ * 实测 T6w（14℃±8、10 m/s 风）里单件替换就能从 69 拿回 78.1，整轮精修到 79.9（全枚举 80.1）。
+ * 对最终路径逐件换成池内任一合格件做局部搜索，直到一轮无可改进；确定性、有界。
+ */
+function polishPath(
+  start: SearchPath,
+  slots: LayerSlot[],
+  candidates: ClothingItem[][],
+  demand: DemandVector,
+  need: EnsembleNeed,
+  prefs: ResolvedPrefs,
+): SearchPath {
+  const rebuildRelaxed = (items: ClothingItem[], base: string[]): string[] => {
+    const codes = base.filter((c) => c.startsWith('NO_CANDIDATE_'))
+    items.forEach((it, i) => {
+      if (slots[i] && !slotHardSatisfied(it, slots[i], need)) codes.push(`RELAXED_${slots[i].role}`)
+    })
+    return [...new Set(codes)]
+  }
+  let best = start
+  let bestScore = scoreAssembly(computeAssembly(best.items, best.roles), demand, need, prefs)
+  for (let pass = 0; pass < MATCHING.polishPasses; pass++) {
+    let improved = false
+    for (let i = 0; i < best.items.length; i++) {
+      const pool = candidates[i] ?? []
+      for (const it of pool) {
+        if (best.used.has(it.id)) continue
+        if (slots[i] && !slotHardSatisfied(it, slots[i], need)) continue
+        const items = [...best.items]
+        items[i] = it
+        const s = scoreAssembly(computeAssembly(items, best.roles), demand, need, prefs)
+        if (s > bestScore + 1e-9) {
+          bestScore = s
+          best = {
+            items,
+            roles: best.roles,
+            used: new Set(items.map((x) => x.id)),
+            relaxed: rebuildRelaxed(items, best.relaxed),
+          }
+          improved = true
+        }
+      }
+    }
+    if (!improved) break
+  }
+  return best
 }
 
 /** 层 → 槽位 reasonCode（同角色多槽取第一个非空；贴身层恒在） */
@@ -233,13 +282,19 @@ function warmthBucket(a: OutfitAssembly, need: EnsembleNeed): number {
   return clamp(max - penalty, 0, max)
 }
 
-/** 天气防护：风/雨/晒各自的属性按需求加权（+0.15 基准，零需求也不把属性一票否决） */
+/**
+ * 天气防护：风/雨/晒各自的属性按需求加权。
+ * 只有当天真有该维需求（>0）的维度才带着权重入场——纯风天不该让"最防水的壳"白拿防水分
+ * （旧版对零需求维度也给 0.15 基准，纯风天硬壳恒压防风夹克，第五步校准）。
+ * 三维全无（无风无雨无晒）→ 中性常数，防护属性不参与排名。
+ */
 function protectionBucket(a: OutfitAssembly, demand: DemandVector): number {
   const max = SCORING.buckets.protection
-  const wWind = demand.WIND / 100 + 0.15
-  const wRain = demand.RAIN / 100 + 0.15
-  const wSolar = demand.SOLAR / 100 + 0.15
+  const wWind = demand.WIND > 0 ? demand.WIND / 100 + 0.15 : 0
+  const wRain = demand.RAIN > 0 ? demand.RAIN / 100 + 0.15 : 0
+  const wSolar = demand.SOLAR > 0 ? demand.SOLAR / 100 + 0.15 : 0
   const wsum = wWind + wRain + wSolar
+  if (wsum === 0) return max * STYLE.neutralCredit
   const value = (a.wind * wWind + a.water * wRain + a.solar * wSolar) / wsum
   return clamp(value * max, 0, max)
 }

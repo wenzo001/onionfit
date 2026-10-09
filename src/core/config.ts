@@ -148,6 +148,8 @@ export const MATCHING = {
   beamWidth: 32,
   /** 每槽额外保留的最厚合格候选数：贴合排序天然偏好"差值最小"，需要把"用厚度补缺口"摆上桌 */
   thickRescuePerSlot: 2,
+  /** 搜后精修轮数：beam 前缀剪枝会丢掉"薄前缀+厚完成"的组合，最终路径再逐件换成池内合格件 */
+  polishPasses: 2,
 }
 
 /**
@@ -169,6 +171,19 @@ export const COORDINATION = {
   legCloPerDegree: 0.03,
   /** 下装分额上限（一件加绒长裤量级） */
   legMaxClo: 0.32,
+}
+
+/**
+ * 逐时穿脱（Schedule）：时间线与「此刻穿着」共用同一条逐时序列。
+ * 保暖层按"去掉它剩下的有效 clo 够不够"判定；两阈值之间的滞回带防临界温度来回跳。
+ */
+export const SCHEDULE = {
+  /** 无降水时，低于此气温就穿防护层（原 planner 内硬编码 12 归一到此处） */
+  protectionColdC: 12,
+  /** 防护层温度滞回带 ℃：脱下需高于阈值这么多，穿回仍按阈值（安全侧的"下雨即穿"不受滞回影响） */
+  protectionHysteresisK: 2,
+  /** 保暖层脱下需要的富余 clo：剩下的还 ≥ 所需 + 该值才算真的用不上（滞回带） */
+  insulationOffMarginClo: 0.15,
 }
 
 /** 数据质量 → 置信度：覆盖判定不能把合成曲线声称成实测精度 */

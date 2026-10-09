@@ -1,0 +1,150 @@
+// 第五步回归（方案 §8.2 / §7.3；遗留 1、2、3、5）：外壳水项条件化、极寒下装舒适窗、
+// 逐时穿脱统一 + 滞回、beam 搜后精修。
+// 判据写成性质（相对大小 / 集合包含 / 逐时一致性），不锁具体某件衣服；
+// 修复前的实测读数写进注释（探针 W4 / W5R / W7），断言在修复前必红。
+import { describe, expect, it } from 'vitest'
+import { computeAssembly, scoreDetail } from './scoring'
+import { neutralPrefs } from './prefs'
+import { planAt } from './test-scenarios'
+import { MATCHING } from '../config'
+import type { ClothingItem, DemandVector, OutfitAssembly } from '@/core/types'
+
+const NEED = { requiredClo: 0.6, designHourTempC: 14 }
+
+describe('S5-1 防护分项按真实需求条件化：没雨的天，防水性不产生排序信号', () => {
+  const mkProt = (wind: number, water: number): OutfitAssembly => {
+    const item: ClothingItem = {
+      id: `p-${wind}-${water}`,
+      name: '合成外壳',
+      category: 'OUTER',
+      role: 'PROTECTION',
+      insulationClo: 0.3,
+      wind,
+      water,
+      breathability: 0.5,
+      solar: 0,
+      weightGrams: 300,
+      removable: true,
+      comfortRangeC: [-10, 25],
+    }
+    return computeAssembly([item], ['PROTECTION'])
+  }
+  const protBucket = (wind: number, water: number, demand: DemandVector) =>
+    scoreDetail(mkProt(wind, water), demand, NEED, neutralPrefs()).buckets.find((b) => b.key === 'protection')!.score
+
+  const WIND_ONLY: DemandVector = { WARMTH: 0, WIND: 60, RAIN: 0, BREATHABILITY: 0, SOLAR: 0, REMOVABLE: 0 }
+  const RAIN_HEAVY: DemandVector = { WARMTH: 0, WIND: 20, RAIN: 70, BREATHABILITY: 0, SOLAR: 0, REMOVABLE: 0 }
+  const ALL_ZERO: DemandVector = { WARMTH: 0, WIND: 0, RAIN: 0, BREATHABILITY: 0, SOLAR: 0, REMOVABLE: 0 }
+
+  it('纯风天：防风更强的件严格胜出（水项权重为 0）', () => {
+    expect(protBucket(0.94, 0.3, WIND_ONLY)).toBeGreaterThan(protBucket(0.9, 1.0, WIND_ONLY))
+  })
+
+  it('纯风天：只差防水性的两件完全等分（水项被条件化掉，不产生信号）', () => {
+    expect(protBucket(0.9, 0.3, WIND_ONLY)).toBe(protBucket(0.9, 1.0, WIND_ONLY))
+  })
+
+  it('雨天：防水强的件反超同等防风薄壳', () => {
+    expect(protBucket(0.9, 1.0, RAIN_HEAVY)).toBeGreaterThan(protBucket(0.94, 0.3, RAIN_HEAVY))
+  })
+
+  it('三需求全零：防护桶回中性常数 16（20 × 0.8）', () => {
+    expect(protBucket(0.5, 0.5, ALL_ZERO)).toBe(16)
+  })
+})
+
+describe('S5-2 极寒下装舒适窗：设计时刻 ≥ −28℃ 不再走槽位放宽回退', () => {
+  // 修复前（探针 W5R 复现）：mean −12（设计 −17）就已 unmet=[RELAXED_BASE,HARD_SLOTS_RELAXED]。
+  it('设计时刻 −17℃：下装槽硬条件成立，unmet 不含任何 RELAXED 码', () => {
+    const r = planAt({ mean: -12, amp: 5, windMs: 2 })
+    expect(r.facts.designHourTempC).toBe(-17)
+    expect(r.coverage.unmetNeeds).not.toContain('RELAXED_BASE')
+    expect(r.coverage.unmetNeeds).not.toContain('HARD_SLOTS_RELAXED')
+    expect(r.coverage.status).toBe('marginal')
+  })
+
+  it('设计时刻 −21℃：诚实标注偏薄，但归因是这套衣服，不是槽位被放宽', () => {
+    const r = planAt({ mean: -16, amp: 5, windMs: 2 })
+    expect(r.coverage.status).toBe('marginal')
+    expect(r.coverage.unmetNeeds).toContain('OUTFIT_UNDERDRESSED')
+    expect(r.coverage.unmetNeeds).not.toContain('RELAXED_BASE')
+  })
+
+  it('设计时刻 −27℃：库里真凑不够 → insufficient + CATALOG_INSUFFICIENT，不归因槽位放宽', () => {
+    const r = planAt({ mean: -22, amp: 5, windMs: 2 })
+    expect(r.coverage.status).toBe('insufficient')
+    expect(r.coverage.unmetNeeds).toContain('CATALOG_INSUFFICIENT')
+    expect(r.coverage.unmetNeeds).not.toContain('RELAXED_BASE')
+  })
+})
+
+describe('S5-3 此刻穿着与时间线共用同一条逐时序列（§8.2）', () => {
+  const SCENES: { tag: string; o: Parameters<typeof planAt>[0] }[] = [
+    { tag: '春雨', o: { mean: 15, amp: 4, windMs: 3, rainChance: 70, rainMmPerHour: 1 } },
+    { tag: '寒晨', o: { mean: 4, amp: 6, windMs: 3 } },
+  ]
+
+  for (const s of SCENES) {
+    it(`${s.tag}：整点穿着只在时间线有事件的整点变化，方向与事件一致`, () => {
+      const plans = Array.from({ length: 24 }, (_, h) => planAt(s.o, {}, h))
+      // 时间线是穿戴序列的相邻差分；两场景事件数都 ≤ 6（片段上限），不存在被截断而漏事件的情况
+      const timeline = plans[0].timeline
+      expect(timeline.length).toBeGreaterThan(0)
+      expect(timeline.length).toBeLessThanOrEqual(6)
+      for (let h = 1; h < 24; h++) {
+        const prev = [...plans[h - 1].wornNowRoles].sort()
+        const cur = [...plans[h].wornNowRoles].sort()
+        const hh = `${String(h).padStart(2, '0')}:00`
+        for (const role of cur.filter((x) => !prev.includes(x))) {
+          expect(
+            timeline.some((e) => e.hour === hh && e.action === 'ADD' && e.role === role),
+            `${s.tag} 第 ${h} 点加穿 ${role} 未出现在时间线`,
+          ).toBe(true)
+        }
+        for (const role of prev.filter((x) => !cur.includes(x))) {
+          expect(
+            timeline.some((e) => e.hour === hh && e.action === 'REMOVE' && e.role === role),
+            `${s.tag} 第 ${h} 点脱下 ${role} 未出现在时间线`,
+          ).toBe(true)
+        }
+      }
+    })
+  }
+
+  it('此刻组合与全天组合同源：只切 active，不换件；贴身层始终在身', () => {
+    const r = planAt(SCENES[0].o, {}, 12)
+    const dayIds = new Set(r.dayOutfit.layers.flatMap((l) => l.items.map((i) => i.id)))
+    r.nowOutfit.layers.flatMap((l) => l.items).forEach((i) => expect(dayIds.has(i.id)).toBe(true))
+    expect(r.wornNowRoles).toContain('BASE')
+  })
+
+  it('暖雨天（22℃）：降水整点安全侧必须穿壳，雨停即脱；滞回不挡「下雨就穿」', () => {
+    const o = { mean: 22, amp: 4, windMs: 2, rainChance: 70, rainMmPerHour: 1 }
+    expect(planAt(o, {}, 8).wornNowRoles).toContain('PROTECTION')
+    expect(planAt(o, {}, 12).wornNowRoles).not.toContain('PROTECTION')
+    const tl = planAt(o, {}, 0).timeline
+    expect(tl.some((e) => e.hour === '08:00' && e.action === 'ADD' && e.role === 'PROTECTION')).toBe(true)
+    expect(tl.some((e) => e.hour === '09:00' && e.action === 'REMOVE' && e.role === 'PROTECTION')).toBe(true)
+    expect(tl.some((e) => e.hour === '18:00' && e.action === 'ADD' && e.role === 'PROTECTION')).toBe(true)
+  })
+})
+
+describe('S5-4 beam 搜后精修：前缀剪枝丢掉的组合必须被单件替换补齐', () => {
+  it('纯风 10m/s（T6w）：产品配置与全枚举差距 ≤ 1 分；修复前为 9 分级（69 → 全枚举 80.1）', { timeout: 30_000 }, () => {
+    const o = { mean: 14, amp: 8, windMs: 10, rainChance: 0 }
+    const product = planAt(o).dayScore
+    const orig = MATCHING.beamWidth
+    let greedy: number
+    let exhaustive: number
+    try {
+      ;(MATCHING as { beamWidth: number }).beamWidth = 1
+      greedy = planAt(o).dayScore
+      ;(MATCHING as { beamWidth: number }).beamWidth = 20000
+      exhaustive = planAt(o).dayScore
+    } finally {
+      ;(MATCHING as { beamWidth: number }).beamWidth = orig
+    }
+    expect(product).toBeGreaterThanOrEqual(exhaustive - 1)
+    expect(product).toBeGreaterThanOrEqual(greedy)
+  })
+})

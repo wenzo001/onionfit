@@ -5,7 +5,6 @@
 import type {
   CoverageReport,
   CoverageStatus,
-  OutfitAssembly,
   OutfitRecommendation,
   RainPlan,
   ReasonCode,
@@ -24,7 +23,7 @@ import { buildDemandVector } from './requirement'
 import { planLayerSlots, type EnsembleNeed, type LayerSlot } from './layering'
 import { matchCandidates, capacityCandidates } from './matching'
 import { assembleOutfit, computeAssembly } from './scoring'
-import { buildDayParts, buildTimeline } from './schedule'
+import { applyWearing, buildDayParts, buildTimeline, buildWearingSeries, wearingAt } from './schedule'
 import { accessoriesOf } from './accessories'
 import { assessUmbrella } from './umbrella'
 import { planExposure, summarizeExposure, type ExposureFacts } from './exposure'
@@ -87,12 +86,13 @@ export function plan({ report, settings, now = new Date() }: PlanInput): OutfitR
     relaxedCodes,
   } = assembleOutfit(slots, candidates, demand.vector, need, prefs)
 
-  // 此刻穿着：按当前热状态决定哪些层 active
+  // 此刻穿着与时间线共用同一条逐时序列（方案 §8.2：两处判据必须一致）
+  const wearingSeries = buildWearingSeries(dayOutfit, hourlyThermal, ctx, activity.metabolicCloReduce)
   const nowThermal = hourlyThermal.find((t) => t.hour === nowHour) ?? hourlyThermal[0]
-  const nowOutfit = applyNowConditions(dayOutfit, nowThermal, ctx, nowHour)
+  const nowOutfit = applyWearing(dayOutfit, wearingAt(wearingSeries, nowHour))
 
   const periods = buildDayParts(ctx, hourlyThermal, settings.outTime, settings.homeTime)
-  const timeline = buildTimeline(ctx, hourlyThermal, dayOutfit)
+  const timeline = buildTimeline(dayOutfit, wearingSeries)
   // 明日一句话由 presentation 按 daily[1] 与今日事实对比生成（引擎不再拼文案）
   const accessories = accessoriesOf(ctx, demand.vector, person, prefs)
   const umbrella = assessUmbrella({
@@ -169,42 +169,6 @@ function radiationGainAt(ctx: WeatherContext, hour: number): number {
   const isDay = hour >= 7 && hour <= 18
   if (!isDay) return 0
   return Math.min(rad * THERMAL.radiantGainCoeff, THERMAL.radiantGainMaxK)
-}
-
-/** 根据当前热状态决定"此刻穿几层"（设计时刻穿全套；现在暖则脱中层，防雨看雨况） */
-function applyNowConditions(
-  dayOutfit: OutfitAssembly,
-  nowThermal: { operativeC: number },
-  ctx: WeatherContext,
-  nowHour: number,
-): OutfitAssembly {
-  const layers = dayOutfit.layers.map((l) => ({ ...l, active: l.items.length > 0 }))
-  const t = nowThermal.operativeC
-
-  for (const l of layers) {
-    const base = l.items[0]
-    if (!base) {
-      l.active = false
-      continue
-    }
-    // 贴身层始终穿
-    if (l.role === 'BASE') {
-      l.active = true
-      continue
-    }
-    // 保暖层：温度高于其舒适上界时脱下
-    if (l.role === 'INSULATION') {
-      l.active = t <= base.comfortRangeC[1] + 3
-      continue
-    }
-    // 防护层：雨/风需要时穿；否则仅早晚冷时穿
-    if (l.role === 'PROTECTION') {
-      const raining = ctx.dayRainMm > 0.3 && ctx.rainfallAt(nowHour) > 0
-      l.active = raining || t <= 12
-    }
-  }
-  void nowHour
-  return { ...dayOutfit, layers }
 }
 
 /** 同样的槽位结构，库里最多能凑到多少有效保暖 */

@@ -121,9 +121,11 @@ describe('S2-5 极寒兜底：合格池为空时按"离设计时刻最近"交付
   })
 })
 
-describe('S2-6 联合搜索必须比逐槽贪心更优（判别场景实证：宽搜索找到贪心够不着的组合）', () => {
-  // 场景参数来自实验台实证：这三组场景下 beam=32 得分严格高于 beam=1（68.6>65.3 / 69.6>64.0 / 76.4>76.2）。
-  // 断言只锁"宽搜索 > 贪心"这一关系，不锁具体分数或衣物，目录更新不写脆。
+describe('S2-6 搜后精修必须追平全枚举（beam 前缀剪枝的落差由单件替换补齐）', () => {
+  // 旧口径「beam=32 严格优于 beam=1」（68.6>65.3 / 69.6>64.0 / 76.4>76.2）在精修落地后不再成立：
+  // 两条起点各跑一轮单件精修都收敛到同一局部最优（现读数 73.3 / 74.3 / 79.6，三方相等）。
+  // 现在锁「产品配置（beam 32 + 精修）不劣于全枚举（beamWidth=20000）− 1」；
+  // 缺陷的真实判别场景（纯风天 T6w：修复前 69 / 全枚举 80.1）在 planner.step5.spec.ts S5-4。
   const scenes: { name: string; demand: DemandVector; need: EnsembleNeed }[] = [
     {
       name: '6℃近似（保暖与重量取舍点）',
@@ -143,19 +145,19 @@ describe('S2-6 联合搜索必须比逐槽贪心更优（判别场景实证：�
   ]
 
   for (const s of scenes) {
-    it(`${s.name}：产品配置下的得分严格高于 beamWidth=1 的贪心`, () => {
+    it(`${s.name}：产品配置与全枚举得分差 ≤ 1`, () => {
       const slots = planLayerSlots(s.demand, s.need)
       const cands = matchCandidates(s.demand, slots, s.need)
       const observed = assembleOutfit(slots, cands, s.demand, s.need).score
       const orig = MATCHING.beamWidth
-      ;(MATCHING as { beamWidth: number }).beamWidth = 1
-      let greedy: number
+      let exhaustive: number
       try {
-        greedy = assembleOutfit(slots, cands, s.demand, s.need).score
+        ;(MATCHING as { beamWidth: number }).beamWidth = 20000
+        exhaustive = assembleOutfit(slots, cands, s.demand, s.need).score
       } finally {
         ;(MATCHING as { beamWidth: number }).beamWidth = orig
       }
-      expect(observed).toBeGreaterThan(greedy)
+      expect(observed).toBeGreaterThanOrEqual(exhaustive - 1)
     })
   }
 })
