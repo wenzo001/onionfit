@@ -135,22 +135,45 @@ describe('S5-3 此刻穿着与时间线共用同一条逐时序列（§8.2）', 
 })
 
 describe('S5-4 beam 搜后精修：前缀剪枝丢掉的组合必须被单件替换补齐', () => {
-  it('纯风 10m/s（T6w）：产品配置与全枚举差距 ≤ 1 分；修复前为 9 分级（69 → 全枚举 80.1）', { timeout: 30_000 }, () => {
+  it('纯风 10m/s（T6w）：产品配置追平全枚举（差 ≤ 1），关掉精修立刻掉档', { timeout: 30_000 }, () => {
+    // 第五步复核读数（宽度 64）：产品 82.8、全枚举 83.1、关精修 80.8（差 2.0，精修确实在补分）。
+    // 旧「beam=32 严格优于贪心」口径已废弃：宽度与精修都会挪动局部最优起点，两者并列互有 0.1 级胜负。
     const o = { mean: 14, amp: 8, windMs: 10, rainChance: 0 }
     const product = planAt(o).dayScore
-    const orig = MATCHING.beamWidth
-    let greedy: number
+    const origBeam = MATCHING.beamWidth
+    const origPolish = MATCHING.polishPasses
     let exhaustive: number
+    let noPolish: number
     try {
-      ;(MATCHING as { beamWidth: number }).beamWidth = 1
-      greedy = planAt(o).dayScore
       ;(MATCHING as { beamWidth: number }).beamWidth = 20000
       exhaustive = planAt(o).dayScore
+      ;(MATCHING as { beamWidth: number }).beamWidth = origBeam
+      ;(MATCHING as { polishPasses: number }).polishPasses = 0
+      noPolish = planAt(o).dayScore
+    } finally {
+      ;(MATCHING as { beamWidth: number }).beamWidth = origBeam
+      ;(MATCHING as { polishPasses: number }).polishPasses = origPolish
+    }
+    expect(product).toBeGreaterThanOrEqual(exhaustive - 1)
+    // 精修必须真实起效：关掉它这个场景要掉 ≥ 1 分（宽度 64 实测 82.8 → 80.8）
+    expect(product - noPolish).toBeGreaterThanOrEqual(1)
+  })
+
+  it('北方寒潮（−12℃±4、11 m/s、老人怕冷）：极寒多槽换装不再输给全枚举', { timeout: 30_000 }, () => {
+    // 宽度复核的判别场景：宽度 32 时最优路径前缀排第 33~64 位，产品 57.1 对比全枚举 62.8（差 5.7）；
+    // 宽度 64 起收敛到全枚举。若把 beamWidth 改回 32，本用例必红。
+    const o = { mean: -12, amp: 4, windMs: 11 }
+    const s = { profile: 'ELDERLY' as const, sensitivity: 'COLD_SENSITIVE' as const }
+    const product = planAt(o, s).dayScore
+    const orig = MATCHING.beamWidth
+    let exhaustive: number
+    try {
+      ;(MATCHING as { beamWidth: number }).beamWidth = 20000
+      exhaustive = planAt(o, s).dayScore
     } finally {
       ;(MATCHING as { beamWidth: number }).beamWidth = orig
     }
     expect(product).toBeGreaterThanOrEqual(exhaustive - 1)
-    expect(product).toBeGreaterThanOrEqual(greedy)
   })
 })
 
@@ -187,7 +210,8 @@ describe('S5-5 多样性分项：无历史中性满分，有历史按重合度�
 
 describe('S5-6 稳定性：天气小波动沿用旧组合，大变化和雨天安全升级不受影响', () => {
   it('12℃ → 13℃：旧组合仍逐槽合格且分差在让步内，继续穿（多样性 0）', () => {
-    // 实测读数：旧组合 78.4，新搜最优 79.5（含novel 1.0 分），差 1.1 ≤ 让步 3 → 复用
+    // 实测读数（基础分口径，已剔除多样性），宽度 64：旧组合 79.7、新搜最优 81.5，差 1.8 ≤ 让步 3 → 复用。
+    // 若把多样性留在比对里：新搜那套三件全换、白得 +3，gap 变 4.8 就会被误换（B2 修复点）。
     const r1 = planAt({ mean: 12, amp: 4, windMs: 2 })
     const r2 = planAt({ mean: 13, amp: 4, windMs: 2 }, { previousItemIds: chosenIds(r1) })
     expect(chosenIds(r2)).toEqual(chosenIds(r1))

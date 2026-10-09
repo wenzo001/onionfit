@@ -169,6 +169,9 @@ function polishPath(
  * 稳定性：上一次那套如果今天仍逐槽合格、且得分不比新搜出的差太多，就继续穿（换装惩罚）。
  * 安全侧不妥协：任何一槽没有合格旧件（含防雨/防风/保暖硬条件）就直接放弃复用，走新搜索——
  * 昨天没带壳的搭配在今天的雨天里不合格，自然被拒，安全升级永远优先。
+ * 比对用中性化偏好（两侧都去掉多样性信号）：换新的理由必须是"更合身/更舒适"，
+ * 不是"新款有新颖加分"——否则多样性分本身（满分 3 恰好顶穿让步 3）会让 1℃ 变化也整套换，
+ * 与"轻微天气变化不导致整套跳变"（方案 §8.1）相抵。
  */
 function reuseIfStable(
   best: SearchPath,
@@ -194,8 +197,9 @@ function reuseIfStable(
     items.push(it)
   }
   const roles = slots.map((s) => s.role)
-  const prevScore = scoreAssembly(computeAssembly(items, roles), demand, need, prefs)
-  const bestScore = scoreAssembly(computeAssembly(best.items, best.roles), demand, need, prefs)
+  const fitPrefs: ResolvedPrefs = { ...prefs, previousItemIds: null }
+  const prevScore = scoreAssembly(computeAssembly(items, roles), demand, need, fitPrefs)
+  const bestScore = scoreAssembly(computeAssembly(best.items, best.roles), demand, need, fitPrefs)
   if (prevScore < bestScore - STABILITY.reuseMargin) return null
   return { items, roles, used, relaxed: [] }
 }
