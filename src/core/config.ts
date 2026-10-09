@@ -7,11 +7,13 @@
 export const THERMAL = {
   /** 静坐舒适中性温度 ℃ */
   neutralTempC: 22,
-  /** 每 1 clo 对应的可承受温差跨度 */
-  cloPerDegree: 6.5,
-  /** 目标内在 clo 上限（防过度保暖） */
-  maxIntrinsicClo: 2.6,
-  /** 太阳辐射增益系数：每 W/m² 抬升作用温度 ℃（约 600 W/m² 晴天 → +3.5℃） */
+  /**
+   * 每 1 clo 对应的可承受温差跨度。
+   * 6.5 会把 0℃ 的静坐需求推到 3.4 clo（远超任何合理着装），改为 12 后
+   * 0℃ ≈ 1.8 clo、-10℃ ≈ 2.7 clo，与 ISO 9920 的组合热阻量级一致。
+   */
+  cloPerDegree: 12,
+  /** 太阳辐射增益系数：每 W/m² 抬升作用温度 ℃（约 600 W/m² 晴天 → +3.6℃） */
   radiantGainCoeff: 0.006,
   /** 辐射增益上限 ℃（防失真） */
   radiantGainMaxK: 5,
@@ -100,6 +102,16 @@ export const DEMAND = {
   /** 可脱卸：昼夜温差启动 ℃ */
   removableOnsetDiff: 8,
   removableFullDiff: 16,
+  /**
+   * 通勤暴露窗口内的降水可以把防雨需求抬到的下限（0-100）。
+   * 「室内」只降低雨暴露权重，不等于完全不经过户外：窗口内有雨时不能让防雨需求归零，
+   * 否则会出现「带伞判定让人带伞、穿衣判定说不用防水」的自相矛盾。
+   */
+  commuteRainFloor: 40,
+  /** 抬到下限所需的窗口内最大整点降水概率 % */
+  commuteRainFloorChance: 40,
+  /** 贴身层目标 clo 的保暖刻度：缺口达此 clo 时贴身层份额取满 */
+  baseTargetScaleClo: 3.0,
 }
 
 /**
@@ -108,10 +120,44 @@ export const DEMAND = {
 export const LAYERING = {
   /** 最大槽位数：贴身上装 + 贴身下装 + 双保暖 + 防护 */
   maxLayers: 5,
-  /** 第二保温槽位所需额外 clo */
-  secondInsulationClo: 0.35,
-  /** 层间 clo 递减系数（穿两层实际保暖 < 相加） */
+  /** 保暖缺口（未封顶 clo）达此值开第一个保暖槽 */
+  firstInsulationClo: 0.55,
+  /** 保暖缺口达此值开第二个保暖槽；layering 真正读取此值（改它就改行为） */
+  secondInsulationClo: 1.1,
+  /** 第二保暖槽的衣物 clo 下限 */
+  secondInsulationMinClo: 0.3,
+  /** 第一保暖槽的衣物 clo 下限档位，按缺口落在 insulationTierBandsC 的哪一段取 */
+  insulationMinCloTiers: [0.25, 0.42, 0.6, 0.8],
+  insulationTierBandClo: [1.0, 1.8, 2.6],
+  /** 缺口达此 clo 时，厚外套（防护层里 clo ≥ warmOuterwearMinClo 的件）可作为保暖使用 */
+  warmOuterwearClo: 2.0,
+  warmOuterwearMinClo: 1.0,
+  /** 缺口达此 clo 时即使无风无雨也必须有一个外层（锁暖 + 挡风），不再只靠叠中间层 */
+  forcedOuterwearClo: 1.8,
+  /** 层间 clo 递减系数：同一角色的第二件起打折（含贴身下装） */
   layerDiminish: 0.85,
+}
+
+/** 数据质量 → 置信度：覆盖判定不能把合成曲线声称成实测精度 */
+export const DATA_QUALITY = {
+  withHourly: 1,
+  synthetic: 0.4,
+}
+
+/** 覆盖判定分档：衣物库撑不住时要如实说不够 */
+export const COVERAGE = {
+  /**
+   * 库容量缺口达到 min(绝对 clo, 需求×比例) 即判"库不够用"。
+   * 0.4 ≈ 一件轻中层的暖量：差不到一件薄毛衣，报"勉强够"比报"不够"更诚实；
+   * 差得出一件像样的衣服（交付包："缺 0.8 clo ≈ 少一件厚羽绒/加绒长裤"）就必须说不够。
+   */
+  insufficientDeficitClo: 0.4,
+  insufficientDeficitRatio: 0.4,
+  /** 这套比需求薄超过此数 → 不能算 adequate */
+  shortfallClo: 0.05,
+  /** 勉强撑住、余量不足此数 → marginal（"刚好够，没有余量"）；需求低于 warmDayClo 视为热天，不按余量降级 */
+  marginalMarginClo: 0.2,
+  warmDayClo: 0.3,
 }
 
 /**

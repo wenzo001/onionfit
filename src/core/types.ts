@@ -287,6 +287,44 @@ export interface RecommendationFacts {
   hasHourly: boolean
 }
 
+/** 衣物库对当前场景的覆盖判定：不够就说不够，不伪装成合格推荐 */
+export type CoverageStatus = 'adequate' | 'marginal' | 'insufficient' | 'unknown'
+
+export interface CoverageReport {
+  status: CoverageStatus
+  /** 未封顶的保暖缺口（clo，设计时刻所需） */
+  requiredClo: number
+  /** 这套组合实际能给的有效保暖（clo） */
+  availableClo: number
+  /** 同样槽位结构下，衣物库最多能凑到的有效保暖（clo） */
+  capacityClo: number
+  /** 这套差多少 clo，>=0（用户能听懂的说法：今天这套偏薄） */
+  deficitClo: number
+  /** 库里根本差多少 clo，>=0（另一回事：需要补衣服） */
+  catalogDeficitClo: number
+  /** 数据置信度 0-1（缺逐时时不能声称精确） */
+  confidence: number
+  /** 未满足的硬条件 code（含被放宽的槽位约束） */
+  unmetNeeds: ReasonCode[]
+}
+
+/** 雨具两件事：穿与带分开给结论，但引用同一组暴露事实 */
+export interface RainPlan {
+  facts: {
+    /** 通勤暴露窗口内最大的整点降水概率 % */
+    commuteMaxLegChance: number
+    /** 窗口内最大雨强 mm/h */
+    commuteMaxLegMmPerHour: number
+    dayRainMm: number
+    windMaxInCommuteMs: number
+  }
+  /** 携带结论，与 umbrella.verdict 同一条判定线 */
+  carry: UmbrellaVerdict
+  /** 是否需要真的穿上防水外壳 / 雨衣 */
+  wearShell: boolean
+  reasons: ReasonCode[]
+}
+
 /** 推荐结论（planner 唯一输出，UI 消费） */
 export interface OutfitRecommendation {
   current: {
@@ -326,6 +364,10 @@ export interface OutfitRecommendation {
   accessories: Accessory[]
   /** 今天出门带不带伞 */
   umbrella: UmbrellaAssessment
+  /** 穿雨衣 / 带伞两条结论共用的事实 */
+  rainPlan: RainPlan
+  /** 衣物库够不够用（方案 §5.2） */
+  coverage: CoverageReport
   safety: SafetyReport
   dayScore: number
   reasons: ReasonCode[]

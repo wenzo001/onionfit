@@ -1,5 +1,6 @@
 // RequirementEngine：六维需求向量（各维度取全天最坏值）。
 // 安全 forcedDemands 以 max 合并，永不下调。
+// 展示用的 0-100 允许饱和；选衣用的是未封顶的 requiredClo，两者分开（方案 §5.2）。
 
 import { DEMAND } from '../config'
 import type { DemandDim, DemandVector } from '../types'
@@ -10,12 +11,17 @@ import type { ResolvedActivity } from './activity'
 import type { SafetyReport } from './safety'
 import type { HourlyThermal } from './thermal'
 import type { SolarContext } from './solar'
+import type { ExposureFacts } from './exposure'
 
 export type DemandReasons = Partial<Record<DemandDim, string[]>>
 
 export interface DemandResult {
   vector: DemandVector
   reasons: DemandReasons
+  /** 未封顶的保暖缺口（clo，已扣代谢产热），选衣与覆盖判定用它 */
+  requiredClo: number
+  /** 全天最大所需 clo（未扣代谢），用于解释"最冷那一小时" */
+  rawMaxClo: number
 }
 
 /**
@@ -28,15 +34,17 @@ export function buildDemandVector(
   thermal: HourlyThermal[],
   solar: SolarContext,
   safety: SafetyReport,
+  exposure: ExposureFacts,
 ): DemandResult {
   const reasons: DemandReasons = {}
 
-  // ---- 保暖 WARMTH：全天最大所需 clo（已含代谢抵消），差中性越远越高 ----
-  const maxClo = Math.max(...thermal.map((t) => t.requiredClo), 0)
-  const baseWarmth = normalize(maxClo, 0.4, DEMAND.warmthFullCloDiff + 0.4)
+  // ---- 保暖 WARMTH：全天最大所需 clo（未封顶），展示维另算 ----
+  const rawMaxClo = Math.max(...thermal.map((t) => t.requiredClo), 0)
+  const requiredClo = Math.max(0, rawMaxClo - activity.metabolicCloReduce)
+  const baseWarmth = normalize(rawMaxClo, 0.4, DEMAND.warmthFullCloDiff + 0.4)
   // 活动代谢产热可抵消保暖需求
   const warmth = clamp(Math.round(baseWarmth - activity.metabolicCloReduce * 15), 0, 100)
-  if (warmth > 20) reasons.WARMTH = ['全天温差大', `最冷时段需约 ${maxClo.toFixed(1)} clo 保暖`]
+  if (warmth > 20) reasons.WARMTH = ['全天温差大', `最冷时段需约 ${rawMaxClo.toFixed(1)} clo 保暖`]
 
   // ---- 防风 WIND：全天最大有效风速（环境 + 自生风） ----
   const windMax = Math.max(...ctx.day.map((p) => p.windSpeedMs)) + activity.selfWindMs
@@ -45,13 +53,17 @@ export function buildDemandVector(
     ? ['当前运动自带风感', `全天风速峰值约 ${windMax.toFixed(0)} m/s`]
     : [`全天风速峰值约 ${windMax.toFixed(0)} m/s`]
 
-  // ---- 防雨 RAIN：降水概率与雨量取较大者 ----
+  // ---- 防雨 RAIN：降水概率与雨量取较大者，再按暴露加权 ----
   const rainChance = ctx.dayRainChanceMax
   const rainMm = ctx.dayRainMm
-  const rainByChance = normalize(rainChance, DEMAND.rainChanceOnset, DEMAND.rainChanceFull)
-  const rainByMm = normalize(rainMm, DEMAND.rainMmOnset, DEMAND.rainMmFull)
-  const rain = Math.max(rainByChance, rainByMm) * activity.rainExposure
-  if (rain > 15 && rainChance >= 0) reasons.RAIN = [`降水概率 ${Math.min(rainChance, 100)}%`]
+  const rainByChance = normalize(Math.max(rainChance, 0), DEMAND.rainChanceOnset, DEMAND.rainChanceFull)
+  const rainByMm = normalize(Math.max(rainMm, 0), DEMAND.rainMmOnset, DEMAND.rainMmFull)
+  const weighted = Math.max(rainByChance, rainByMm) * activity.rainExposure
+  // 「室内」只降低暴露权重：通勤窗口里确实有雨时，防雨需求不归零，否则与带伞结论互相打脸
+  const windowChance = exposure.hourly ? exposure.maxChance : Math.max(rainChance, 0)
+  const floor = windowChance >= DEMAND.commuteRainFloorChance ? DEMAND.commuteRainFloor : 0
+  const rain = Math.max(weighted, floor)
+  if (rain > 15 && rainChance >= 0) reasons.RAIN = [`降水概率 ${Math.min(Math.max(rainChance, 0), 100)}%`]
 
   // ---- 透气 BREATHABILITY：高温 + 高湿 + 高强度活动 ----
   const hotHours = thermal.filter((t) => t.operativeC >= DEMAND.breathabilityOnsetC)
@@ -80,7 +92,7 @@ export function buildDemandVector(
     SOLAR: mergeDim(solarD, safety.forcedDemands.SOLAR),
     REMOVABLE: mergeDim(removable, safety.forcedDemands.REMOVABLE),
   }
-  return { vector, reasons }
+  return { vector, reasons, requiredClo, rawMaxClo }
 }
 
 function mergeDim(base: number, forced: number | undefined): number {

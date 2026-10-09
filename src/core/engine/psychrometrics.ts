@@ -54,11 +54,14 @@ export function feelsLikeC(
   return tempC + radiantGainK - windChillK(tempC, windMs) + humidityLoadK(tempC, humidityPercent)
 }
 
-/** 由体感反推"所需内在 clo"（简化线性模型） */
+/**
+ * 由作用温度反推"所需内在 clo"。
+ * 不封顶：低温侧的区分度靠这个原始缺口（方案 §5.2），展示用的 0-100 归一化另有其口径。
+ */
 export function requiredIntrinsicClo(tempC: number, neutralC: number): number {
   const diff = neutralC - tempC
   if (diff <= 0) return 0
-  return Math.min(diff / THERMAL.cloPerDegree, THERMAL.maxIntrinsicClo)
+  return diff / THERMAL.cloPerDegree
 }
 
 export interface ThermalPoint {

@@ -109,6 +109,7 @@ const SHELL_SUFFIX: Partial<Record<ReasonCode, string>> = {
   NEED_WIND_SHELL: '风大再穿',
   NEED_RAIN_SHELL: '有雨再穿',
   NEED_SUN_SHELL: '晒了再穿',
+  NEED_COLD_SHELL: '冷就穿上',
   NEED_INSULATION: '冷了再穿',
   NEED_TWO_LAYERS: '冷了再穿',
   NEED_SECOND_INSULATION: '更冷再穿',
@@ -288,12 +289,14 @@ function roleReason(
   if (l.role === 'INSULATION') {
     return `保暖需求 ${Math.round(d.WARMTH)}，需约 ${requiredClo.toFixed(2)} clo`
   }
-  // 防护层按真正触发它的那一维说话：风 / 雨 / 晒
+  // 防护层按真正触发它的那一维说话：风 / 雨 / 晒 / 严寒
   switch (l.noteCode) {
     case 'NEED_RAIN_SHELL':
       return `雨 ${round1(f.dayRainMm)} mm，加厚没用，得有壳`
     case 'NEED_SUN_SHELL':
       return `UV ${round1(f.dayUvMax)}，防晒得靠外层`
+    case 'NEED_COLD_SHELL':
+      return `最冷 ${round1(f.designHourTempC)}°，靠厚外壳锁住体温`
     default:
       return `风到 ${round1(f.windMaxMs)} m/s，加厚没用，得有壳`
   }

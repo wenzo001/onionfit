@@ -32,7 +32,7 @@ export function resolveActivity(activity: ActivityKind): ResolvedActivity {
   }
 }
 
-/** 活动可选清单（UI 展示用） */
+/** 活动可选清单（UI 展示用；必须与 ACTIVITY 枚举一致，否则出现"引擎支持但用户选不到"） */
 export const SELECTABLE_ACTIVITIES: { value: ActivityKind; label: string }[] = [
   { value: 'HOME', label: '居家' },
   { value: 'OFFICE', label: '办公' },
@@ -42,4 +42,5 @@ export const SELECTABLE_ACTIVITIES: { value: ActivityKind; label: string }[] = [
   { value: 'RUNNING', label: '跑步' },
   { value: 'OUTDOOR_WORK', label: '户外工作' },
   { value: 'OUTDOOR_LEISURE', label: '户外休闲' },
+  { value: 'DRIVING', label: '开车' },
 ]

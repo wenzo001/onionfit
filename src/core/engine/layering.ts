@@ -1,5 +1,5 @@
-// LayeringEngine：由需求向量决定"层结构与槽位"
-// BASE 必有；保暖需求决定 1-2 个 INSULATION；雨/风/晒决定 PROTECTION
+// LayeringEngine：由需求向量 + 未封顶的保暖缺口决定"层结构与槽位"
+// BASE 必有；保暖缺口决定 1-2 个 INSULATION；雨/风/晒决定 PROTECTION；严寒即使无风雨也要有外层。
 
 import { LAYERING } from '../config'
 import type { DemandVector, LayerRole } from '../types'
@@ -16,87 +16,121 @@ export interface LayerSlot {
   needWind: boolean
   /** 是否要求遮阳 */
   needSolar: boolean
+  /** 严寒：允许把厚外套（防护层里 clo 足够高的件）当保暖用 */
+  acceptsWarmOuterwear: boolean
   /** 槽位产生原因 code（透出给文案） */
   reasonCodes: string[]
+}
+
+/** 选衣用的保暖缺口（未封顶 clo），展示维 WARMTH 饱和不影响它 */
+export interface WarmthNeed {
+  requiredClo: number
+}
+
+/** 第一保暖槽的衣物下限：缺口越大，要求单件越厚 */
+function firstSlotMinClo(requiredClo: number): number {
+  const bands = LAYERING.insulationTierBandClo
+  const tiers = LAYERING.insulationMinCloTiers
+  for (let i = 0; i < bands.length; i++) if (requiredClo <= bands[i]) return tiers[i]
+  return tiers[tiers.length - 1]
 }
 
 /**
  * 槽位决策（上下装分池，推荐永远含上衣+下装）：
  * - BASE × 2：上装 + 下装（必有）
- * - WARMTH > 12  → +1 INSULATION（上装）
- * - WARMTH > 45  → +1 INSULATION（第二件上装保暖）
- * - RAIN/WIND > 32 → +PROTECTION（防水/防风壳）
- * - SOLAR > 40 且无壳 → 遮阳外层（防晒衣）
+ * - 雨或风 > 32 → PROTECTION（防水/防风壳）
+ * - 无风雨但保暖缺口 ≥ forcedOuterwearClo → PROTECTION（严寒外层，锁暖 + 挡风）
+ * - 无壳且 SOLAR > 40 且保暖需求低 → 遮阳外层
+ * - 缺口 ≥ firstInsulationClo → +1 INSULATION；≥ secondInsulationClo → 再 +1
+ * - 预算不足时按优先级丢：先丢第二保暖，绝不静默丢外层
  */
-export function planLayerSlots(demand: DemandVector): LayerSlot[] {
-  const slots: LayerSlot[] = [
-    { role: 'BASE', category: 'TOP', minClo: 0.03, needWater: false, needWind: false, needSolar: false, reasonCodes: [] },
-    { role: 'BASE', category: 'BOTTOM', minClo: 0.03, needWater: false, needWind: false, needSolar: false, reasonCodes: [] },
+export function planLayerSlots(demand: DemandVector, need: WarmthNeed): LayerSlot[] {
+  const base: LayerSlot[] = [
+    { role: 'BASE', category: 'TOP', minClo: 0.03, needWater: false, needWind: false, needSolar: false, acceptsWarmOuterwear: false, reasonCodes: [] },
+    { role: 'BASE', category: 'BOTTOM', minClo: 0.03, needWind: false, needWater: false, needSolar: false, acceptsWarmOuterwear: false, reasonCodes: [] },
   ]
 
-  const warmth = demand.WARMTH
-  if (warmth > 12) {
-    slots.push({
+  const shell = coldShellSlot(demand, need)
+  const warmOuterwear = need.requiredClo >= LAYERING.warmOuterwearClo
+
+  const insulation: LayerSlot[] = []
+  if (need.requiredClo >= LAYERING.firstInsulationClo) {
+    insulation.push({
       role: 'INSULATION',
       category: 'TOP',
-      minClo: middleLayerMin(warmth),
+      minClo: firstSlotMinClo(need.requiredClo),
       needWater: false,
       needWind: false,
       needSolar: false,
-      reasonCodes: [warmth > 45 ? 'NEED_TWO_LAYERS' : 'NEED_INSULATION'],
+      acceptsWarmOuterwear: warmOuterwear,
+      reasonCodes: [need.requiredClo >= LAYERING.secondInsulationClo ? 'NEED_TWO_LAYERS' : 'NEED_INSULATION'],
     })
   }
-  if (warmth > 45) {
-    slots.push({
+  if (need.requiredClo >= LAYERING.secondInsulationClo) {
+    insulation.push({
       role: 'INSULATION',
       category: 'TOP',
-      minClo: 0.28,
+      minClo: LAYERING.secondInsulationMinClo,
       needWater: false,
       needWind: false,
       needSolar: false,
+      acceptsWarmOuterwear: warmOuterwear,
       reasonCodes: ['NEED_SECOND_INSULATION'],
     })
   }
 
-  // 防护层：雨/风
+  // 外层优先占用槽位预算：它同时承担防风雨与严寒锁暖，不能被子保暖层挤掉
+  const optional = [shell, ...insulation].filter((s): s is LayerSlot => !!s)
+  const room = Math.max(0, LAYERING.maxLayers - base.length)
+  return [...base, ...optional.slice(0, room)]
+}
+
+/** 防护层槽：防风雨优先，其次严寒强制外层，最后才是遮阳壳 */
+function coldShellSlot(demand: DemandVector, need: WarmthNeed): LayerSlot | null {
   const needShell = demand.RAIN > 32 || demand.WIND > 32
   if (needShell) {
-    slots.push({
+    return {
       role: 'PROTECTION',
       category: 'OUTER',
       minClo: 0,
       needWater: demand.RAIN > 32,
       needWind: true,
       needSolar: false,
-      reasonCodes: [
-        demand.RAIN > demand.WIND ? 'NEED_RAIN_SHELL' : 'NEED_WIND_SHELL',
-      ],
-    })
+      acceptsWarmOuterwear: false,
+      reasonCodes: [demand.RAIN > demand.WIND ? 'NEED_RAIN_SHELL' : 'NEED_WIND_SHELL'],
+    }
   }
-
-  // 遮阳外层：暖热且有 UV 时（不影响寒冷层数判断）
-  if (!needShell && demand.SOLAR > 40 && demand.WARMTH < 50) {
-    slots.push({
+  // 极寒静风干燥：厚外套是保暖手段，不能等到大风或下雨才允许出现
+  if (need.requiredClo >= LAYERING.forcedOuterwearClo) {
+    return {
+      role: 'PROTECTION',
+      category: 'OUTER',
+      minClo: LAYERING.warmOuterwearMinClo,
+      needWater: false,
+      needWind: false,
+      needSolar: false,
+      acceptsWarmOuterwear: false,
+      reasonCodes: ['NEED_COLD_SHELL'],
+    }
+  }
+  if (demand.SOLAR > 40 && demand.WARMTH < 50) {
+    return {
       role: 'PROTECTION',
       category: 'OUTER',
       minClo: 0,
       needWater: false,
       needWind: false,
       needSolar: true,
+      acceptsWarmOuterwear: false,
       reasonCodes: ['NEED_SUN_SHELL'],
-    })
+    }
   }
-
-  // 截断到最大层数（上装+下装+双保暖+防护 = 5）
-  return slots.slice(0, LAYERING.maxLayers)
+  return null
 }
 
-function middleLayerMin(warmth: number): number {
-  // 保暖需求越高，中层目标 clo 越高
-  if (warmth <= 30) return 0.25
-  if (warmth <= 55) return 0.42
-  if (warmth <= 80) return 0.6
-  return 0.8
+/** 检查需求是否主要由雨/风驱动（决定文案口径） */
+export function isShellDriven(demand: DemandVector): boolean {
+  return demand.RAIN > 32 || demand.WIND > 32
 }
 
 /** 层的展示标签（presentation 也会用） */
@@ -104,9 +138,4 @@ export const ROLE_LABEL: Record<LayerRole, string> = {
   BASE: '贴身层',
   INSULATION: '保暖层',
   PROTECTION: '防护层',
-}
-
-/** 检查需求是否主要由雨/风驱动（决定文案口径） */
-export function isShellDriven(demand: DemandVector): boolean {
-  return demand.RAIN > 32 || demand.WIND > 32
 }

@@ -3,8 +3,13 @@
 // 确定性：同输入必同输出；欢迎单测
 
 import type {
+  CoverageReport,
+  CoverageStatus,
   OutfitAssembly,
   OutfitRecommendation,
+  RainPlan,
+  ReasonCode,
+  UmbrellaAssessment,
   UserSettings,
   WeatherReport,
 } from '../types'
@@ -15,14 +20,15 @@ import { resolveActivity } from './activity'
 import { buildHourlyThermal } from './thermal'
 import { assessSafety } from './safety'
 import { buildDemandVector } from './requirement'
-import { planLayerSlots } from './layering'
-import { matchCandidates } from './matching'
-import { assembleOutfit } from './scoring'
+import { planLayerSlots, type LayerSlot } from './layering'
+import { matchCandidates, capacityCandidates } from './matching'
+import { assembleOutfit, computeAssembly } from './scoring'
 import { buildDayParts, buildTimeline } from './schedule'
 import { accessoriesOf } from './accessories'
 import { assessUmbrella } from './umbrella'
+import { planExposure, summarizeExposure, type ExposureFacts } from './exposure'
 import { round1 } from './psychrometrics'
-import { THERMAL } from '../config'
+import { COVERAGE, DATA_QUALITY, DEMAND, SAFETY, THERMAL } from '../config'
 
 export interface PlanInput {
   report: WeatherReport
@@ -47,12 +53,16 @@ export function plan({ report, settings, now = new Date() }: PlanInput): OutfitR
   )
 
   const safety = assessSafety(ctx, person, activity)
-  const demand = buildDemandVector(ctx, person, activity, hourlyThermal, solar, safety)
+  // 暴露窗口先算：穿衣防雨需求与带伞结论必须引用同一组通勤事实
+  const legPlan = planExposure(settings, settings.activity, now)
+  const exposure = summarizeExposure(ctx, legPlan)
+  const demand = buildDemandVector(ctx, person, activity, hourlyThermal, solar, safety, exposure)
 
-  // 层结构与匹配
-  const slots = planLayerSlots(demand.vector)
-  const candidates = matchCandidates(demand.vector, slots)
-  const { assembly: dayOutfit, score } = assembleOutfit(slots, candidates, demand.vector)
+  // 层结构与匹配：用未封顶的保暖缺口，不用会饱和的展示维
+  const need = { requiredClo: demand.requiredClo, designHourTempC: designHour.temperatureC }
+  const slots = planLayerSlots(demand.vector, need)
+  const candidates = matchCandidates(demand.vector, slots, need)
+  const { assembly: dayOutfit, score, relaxedCodes } = assembleOutfit(slots, candidates, demand.vector, need)
 
   // 此刻穿着：按当前热状态决定哪些层 active
   const nowThermal = hourlyThermal.find((t) => t.hour === nowHour) ?? hourlyThermal[0]
@@ -112,6 +122,14 @@ export function plan({ report, settings, now = new Date() }: PlanInput): OutfitR
     timeline,
     accessories,
     umbrella,
+    rainPlan: buildRainPlan(exposure, ctx, umbrella),
+    coverage: buildCoverage(
+      demand.requiredClo,
+      dayOutfit.effectiveClo,
+      capacityFor(slots),
+      ctx.hasHourly,
+      relaxedCodes,
+    ),
     safety,
     dayScore: score,
     reasons: flattenReasons(demand.reasons),
@@ -161,6 +179,86 @@ function applyNowConditions(
   }
   void nowHour
   return { ...dayOutfit, layers }
+}
+
+/** 同样的槽位结构，库里最多能凑到多少有效保暖 */
+function capacityFor(slots: LayerSlot[]): number {
+  const items = capacityCandidates(slots)
+  if (!items.length) return 0
+  return computeAssembly(items, slots.map((s) => s.role)).effectiveClo
+}
+
+/** 衣物库够不够用：分清「这套偏薄」与「库里根本没有」两件事 */
+export function buildCoverage(
+  requiredClo: number,
+  availableClo: number,
+  capacityClo: number,
+  hourly: boolean,
+  relaxed: string[],
+): CoverageReport {
+  const confidence = hourly ? DATA_QUALITY.withHourly : DATA_QUALITY.synthetic
+  const round2 = (v: number) => Math.round(v * 100) / 100
+  const required = round2(requiredClo)
+  const shortfall = Math.max(0, round2(requiredClo - availableClo))
+  const catalogGap = Math.max(0, round2(requiredClo - capacityClo))
+  // 死区：差得出一件轻中层才算库不够；小缺口归"勉强够"，不按浮点误差吓人
+  const bar = Math.min(COVERAGE.insufficientDeficitClo, requiredClo * COVERAGE.insufficientDeficitRatio)
+
+  let status: CoverageStatus
+  // 槽位被放宽与预报质量无关：组装都没满足硬条件，任何数据下都不能算合格
+  if (relaxed.length) status = 'insufficient'
+  else if (!hourly) status = 'unknown'
+  else if (catalogGap > bar) status = 'insufficient'
+  else if (shortfall > COVERAGE.shortfallClo) status = 'marginal'
+  else if (requiredClo >= COVERAGE.warmDayClo && availableClo - requiredClo < COVERAGE.marginalMarginClo) status = 'marginal'
+  else status = 'adequate'
+
+  const unmetNeeds: ReasonCode[] = [...relaxed]
+  if (relaxed.length) unmetNeeds.push('HARD_SLOTS_RELAXED')
+  if (status === 'insufficient' && catalogGap > 0) unmetNeeds.push('CATALOG_INSUFFICIENT')
+  if (status === 'marginal' && shortfall > COVERAGE.shortfallClo) unmetNeeds.push('OUTFIT_UNDERDRESSED')
+  if (status === 'unknown') unmetNeeds.push('NO_HOURLY_FORECAST')
+  return {
+    status,
+    requiredClo: required,
+    availableClo,
+    capacityClo,
+    deficitClo: shortfall,
+    catalogDeficitClo: catalogGap,
+    confidence,
+    unmetNeeds,
+  }
+}
+
+/** 穿与带分开给结论，但两条都用同一组暴露事实 */
+function buildRainPlan(
+  exposure: ExposureFacts,
+  ctx: WeatherContext,
+  umbrella: UmbrellaAssessment,
+): RainPlan {
+  const maxChance = Math.max(exposure.maxChance, 0)
+  const dayRainMm = Math.max(ctx.dayRainMm, 0)
+  const wetInWindow =
+    maxChance >= DEMAND.commuteRainFloorChance ||
+    exposure.maxMmPerHour >= 0.5 ||
+    dayRainMm >= SAFETY.watchRainMm
+  // 不带伞的日子也不该要求穿上防水外壳（两者共用结论线，不互相打脸）
+  const wearShell = umbrella.verdict !== 'SKIP' && wetInWindow
+  const reasons: ReasonCode[] = []
+  if (wearShell) reasons.push('rain-in-window')
+  if (umbrella.verdict === 'RAINCOAT') reasons.push('umbrella-ineffective')
+  if (!exposure.hourly) reasons.push('no-hourly-exposure-data')
+  return {
+    facts: {
+      commuteMaxLegChance: maxChance,
+      commuteMaxLegMmPerHour: exposure.maxMmPerHour,
+      dayRainMm,
+      windMaxInCommuteMs: exposure.maxWindMs,
+    },
+    carry: umbrella.verdict,
+    wearShell,
+    reasons,
+  }
 }
 
 function flattenReasons(reasons: Record<string, string[] | undefined>): string[] {

@@ -1,15 +1,15 @@
 // OutfitScoringEngine：从候选组装一套完整穿搭并评分（确定性）
-// 组合方式：逐层取第一名（如果第一适合温度窗口），否则走第二
+// 组合方式：逐层取第一个满足硬约束的候选；都不满足时记录"被放宽"，不静默冒充合格推荐。
 
-import type { ClothingItem, DemandVector, OutfitAssembly } from '../types'
 import { LAYERING, SCORING } from '../config'
-import type { LayerSlot } from './layering'
+import type { ClothingItem, DemandVector, LayerRole, OutfitAssembly } from '../types'
+import type { LayerSlot, WarmthNeed } from './layering'
 
 export interface AssembledOutfit {
   assembly: OutfitAssembly
   chosen: ClothingItem[]
   score: number
-  /** 被放宽的硬约束 code */
+  /** 被放宽的硬约束 code（合格推荐不应出现） */
   relaxedCodes: string[]
 }
 
@@ -18,13 +18,15 @@ export function assembleOutfit(
   slots: LayerSlot[],
   candidates: ClothingItem[][],
   demand: DemandVector,
+  need: WarmthNeed,
 ): AssembledOutfit {
   const chosen: ClothingItem[] = []
+  const slotRoles: LayerRole[] = []
   const used = new Set<string>()
+  const relaxedCodes: string[] = []
 
   slots.forEach((slot, i) => {
     const pool = candidates[i] ?? []
-    // 主选：评分最高的；若槽位有温度/属性硬约束且第一名不满足，尝试第二名
     let pick: ClothingItem | undefined
     for (const it of pool) {
       if (used.has(it.id)) continue // 双保暖槽不得选同一件
@@ -33,20 +35,24 @@ export function assembleOutfit(
         break
       }
     }
-    if (!pick && pool.length) {
-      pick = pool.find((it) => !used.has(it.id)) ?? pool[0]
+    if (!pick) {
+      // 没有一件满足硬条件：保留"尽力而为"的组合给界面展示，但必须登记未满足项
+      pick = pool.find((it) => !used.has(it.id)) ?? undefined
+      if (pick) relaxedCodes.push(`RELAXED_${slot.role}`)
+      else relaxedCodes.push(`NO_CANDIDATE_${slot.role}_${slot.category}`)
     }
     if (pick) {
       chosen.push(pick)
+      slotRoles.push(slot.role)
       used.add(pick.id)
     }
   })
 
-  const assembly = computeAssembly(chosen)
+  const assembly = computeAssembly(chosen, slotRoles)
   // 槽位产生原因透传到层：界面「这层为什么存在」读的是真实决策依据，不是猜测
   attachSlotReasons(assembly, slots)
-  const score = scoreAssembly(assembly, demand)
-  return { assembly, chosen, score, relaxedCodes: [] }
+  const score = scoreAssembly(assembly, demand, need)
+  return { assembly, chosen, score, relaxedCodes }
 }
 
 /** 层 → 槽位 reasonCode（同角色多槽取第一个非空；贴身层恒在） */
@@ -71,23 +77,29 @@ function slotHardSatisfied(it: ClothingItem, slot: LayerSlot): boolean {
   return true
 }
 
-/** 组装单一穿搭结构 */
-export function computeAssembly(chosen: ClothingItem[]): OutfitAssembly {
-  // 层间 clo 递减：同一身叠穿才打折（两件保暖层），上装+下装是并排覆盖、直接相加
+/**
+ * 组装单一穿搭结构。
+ * slotRoles 指定每件来自哪个槽位——厚外套填保暖槽时它属于保暖层，而不是按自身品类归到防护层。
+ */
+export function computeAssembly(chosen: ClothingItem[], slotRoles?: LayerRole[]): OutfitAssembly {
+  const roleOf = (it: ClothingItem, i: number): LayerRole => slotRoles?.[i] ?? it.role
+  // 层间 clo 递减：同一角色叠穿才打折（第二件起 ×0.85），上装+下装分属两槽也照此口径
   const roleCount: Record<string, number> = {}
   let totalNominal = 0
-  chosen.forEach((it) => {
-    const k = roleCount[it.role] ?? 0
-    roleCount[it.role] = k + 1
+  chosen.forEach((it, i) => {
+    const role = roleOf(it, i)
+    const k = roleCount[role] ?? 0
+    roleCount[role] = k + 1
     totalNominal += it.insulationClo * Math.pow(LAYERING.layerDiminish, k)
   })
   // 风穿透折损：外层风挡不足时有效 clo 下降
-  const protection = chosen.find((it) => it.role === 'PROTECTION')
+  const protectionIdx = chosen.findIndex((it, i) => roleOf(it, i) === 'PROTECTION')
+  const protection = protectionIdx >= 0 ? chosen[protectionIdx] : undefined
   const windFactor = protection && protection.wind >= 0.8 ? 1 : 0.85
   const effectiveClo = totalNominal * windFactor
 
   const groups: Record<string, ClothingItem[]> = { BASE: [], INSULATION: [], PROTECTION: [] }
-  chosen.forEach((it) => groups[it.role]?.push(it))
+  chosen.forEach((it, i) => groups[roleOf(it, i)]?.push(it))
 
   // 分层与 active 状态：只保留有衣物的层（避免渲染空槽位）
   const layers = (Object.keys(groups) as ClothingItem['role'][]).map((role) => {
@@ -113,11 +125,21 @@ export function computeAssembly(chosen: ClothingItem[]): OutfitAssembly {
   }
 }
 
-/** 加权评分（8 项权重合计 1.0 + 惩罚） */
-export function scoreAssembly(a: OutfitAssembly, demand: DemandVector): number {
+/**
+ * 加权评分（8 项权重合计 1.0 + 惩罚）。
+ * 保暖贴合以"当前场景需要多少 clo"为目标，不再用固定 1.0 clo；
+ * 欠保暖比略微过暖罚得更重——穿少了会冷，穿多了只是沉。
+ */
+export function scoreAssembly(
+  a: OutfitAssembly,
+  demand: DemandVector,
+  need: WarmthNeed,
+): number {
   const w = SCORING.weights
-  // 保暖贴合：有效 clo 与需求差值
-  const warmthScore = 100 - Math.min(100, Math.abs(a.effectiveClo - 1.0) * 40)
+  const gap = need.requiredClo - a.effectiveClo
+  const warmthScore = gap <= 0
+    ? 100 - Math.min(30, -gap * 25) // 过暖：轻罚
+    : 100 - gap * 45 // 欠暖：重罚
   let score =
     warmthScore * w.warmth +
     a.wind * 100 * w.wind +
