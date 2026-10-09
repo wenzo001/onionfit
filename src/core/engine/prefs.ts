@@ -30,6 +30,8 @@ export interface ResolvedPrefs {
   breathBias: number
   /** 反馈派生：正式度权重抬升 0..0.3（「不符合场合」） */
   occasionBias: number
+  /** 上一次推荐的实际入选项 id；null = 无历史（多样性/复用不产生信号） */
+  previousItemIds: string[] | null
 }
 
 /** 缺省设置下的解析结果（引擎内部中性回退，不产生排序信号） */
@@ -45,6 +47,7 @@ export function neutralPrefs(): ResolvedPrefs {
     warmthBiasClo: 0,
     breathBias: 0,
     occasionBias: 0,
+    previousItemIds: null,
   }
 }
 
@@ -68,6 +71,7 @@ export function resolvePrefs(settings: UserSettings): ResolvedPrefs {
     ),
     breathBias: round2(Math.min(FEEDBACK.breathMax, count('STUFFY') * FEEDBACK.breathStep)),
     occasionBias: round2(Math.min(FEEDBACK.occasionMax, count('OFF_OCCASION') * FEEDBACK.occasionStep)),
+    previousItemIds: settings.previousItemIds?.length ? settings.previousItemIds : null,
   }
 }
 

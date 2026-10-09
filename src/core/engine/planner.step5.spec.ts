@@ -7,7 +7,12 @@ import { computeAssembly, scoreDetail } from './scoring'
 import { neutralPrefs } from './prefs'
 import { planAt } from './test-scenarios'
 import { MATCHING } from '../config'
-import type { ClothingItem, DemandVector, OutfitAssembly } from '@/core/types'
+import type { ActivityKind, ClothingItem, DemandVector, LayerRole, OutfitAssembly } from '@/core/types'
+
+const chosenIds = (r: ReturnType<typeof planAt>) =>
+  r.dayOutfit.layers.flatMap((l) => l.items.map((i) => i.id)).sort()
+const divScore = (r: ReturnType<typeof planAt>) =>
+  r.scoreBreakdown.find((b) => b.key === 'diversity')!.score
 
 const NEED = { requiredClo: 0.6, designHourTempC: 14 }
 
@@ -146,5 +151,139 @@ describe('S5-4 beam 搜后精修：前缀剪枝丢掉的组合必须被单件替
     }
     expect(product).toBeGreaterThanOrEqual(exhaustive - 1)
     expect(product).toBeGreaterThanOrEqual(greedy)
+  })
+})
+
+describe('S5-5 多样性分项：无历史中性满分，有历史按重合度计', () => {
+  it('无 previousItemIds：多样性满分 3，分项和仍等于 dayScore', () => {
+    const r = planAt({ mean: 12, amp: 4, windMs: 2 })
+    expect(divScore(r)).toBe(3)
+    const sum = r.scoreBreakdown.reduce((s, b) => s + b.score, 0)
+    expect(Math.abs(sum - r.dayScore)).toBeLessThanOrEqual(0.2)
+  })
+
+  it('重合度计分（单元）：全同 0 分、三件一件沿用 2.0、全换满分', () => {
+    const base = planAt({ mean: 12, amp: 4, windMs: 2 })
+    const items = base.dayOutfit.layers.flatMap((l) => l.items)
+    const roles = base.dayOutfit.layers.flatMap((l) => l.items.map(() => l.role))
+    const asm = computeAssembly(items, roles as LayerRole[])
+    const need = { requiredClo: base.coverage.requiredClo, designHourTempC: base.facts.designHourTempC }
+    const divOf = (prev: string[] | null) =>
+      scoreDetail(asm, base.demand.vector, need, { ...neutralPrefs(), previousItemIds: prev }).buckets.find(
+        (b) => b.key === 'diversity',
+      )!.score
+    expect(divOf(chosenIds(base))).toBe(0)
+    expect(divOf([chosenIds(base)[0]])).toBe(2)
+    expect(divOf(['zzz1', 'zzz2', 'zzz3'])).toBe(3)
+  })
+
+  it('无关旧 id 不挡新件：搜索结果与无历史时一致', () => {
+    const base = planAt({ mean: 12, amp: 4, windMs: 2 })
+    const unrelated = planAt({ mean: 12, amp: 4, windMs: 2 }, { previousItemIds: ['zzz1', 'zzz2', 'zzz3'] })
+    expect(chosenIds(unrelated)).toEqual(chosenIds(base))
+    expect(divScore(unrelated)).toBe(3)
+  })
+})
+
+describe('S5-6 稳定性：天气小波动沿用旧组合，大变化和雨天安全升级不受影响', () => {
+  it('12℃ → 13℃：旧组合仍逐槽合格且分差在让步内，继续穿（多样性 0）', () => {
+    // 实测读数：旧组合 78.4，新搜最优 79.5（含novel 1.0 分），差 1.1 ≤ 让步 3 → 复用
+    const r1 = planAt({ mean: 12, amp: 4, windMs: 2 })
+    const r2 = planAt({ mean: 13, amp: 4, windMs: 2 }, { previousItemIds: chosenIds(r1) })
+    expect(chosenIds(r2)).toEqual(chosenIds(r1))
+    expect(divScore(r2)).toBe(0)
+    const sum = r2.scoreBreakdown.reduce((s, b) => s + b.score, 0)
+    expect(Math.abs(sum - r2.dayScore)).toBeLessThanOrEqual(0.2)
+  })
+
+  it('12℃ → -5℃：旧组合不再合格，必须整套换', () => {
+    const r1 = planAt({ mean: 12, amp: 4, windMs: 2 })
+    const r5 = planAt({ mean: -5, amp: 4, windMs: 2 }, { previousItemIds: chosenIds(r1) })
+    expect(chosenIds(r5)).not.toEqual(chosenIds(r1))
+    // 实测读数：-5℃ 的 5 件里只有发热上衣 1 件与 12℃ 组重合 → 新颖度 4/5 → 2.4 分
+    expect(divScore(r5)).toBe(2.4)
+  })
+
+  it('晴天组合 → 雨天：旧组合没壳被拒，安全升级优先（必穿防水壳、不被放宽）', () => {
+    const sunny = planAt({ mean: 20, amp: 4, windMs: 2 })
+    const rain = planAt(
+      { mean: 15, amp: 4, windMs: 2, rainChance: 70, rainMmPerHour: 1 },
+      { previousItemIds: chosenIds(sunny) },
+    )
+    const prot = rain.dayOutfit.layers.find((l) => l.role === 'PROTECTION')
+    expect(prot).toBeTruthy()
+    expect(prot!.items[0].water).toBeGreaterThanOrEqual(0.9)
+    expect(rain.coverage.unmetNeeds).not.toContain('RELAXED_PROTECTION')
+    expect(chosenIds(rain)).not.toEqual(chosenIds(sunny))
+  })
+})
+
+describe('S5-7 场景矩阵：一致性闸门（7 温度 × 雨 × 3 风 × 2 UV × 9 活动 = 756 组）', () => {
+  it('全部场景满足：分数域、分项和=dayScore、件不重复、覆盖判定同向、雨天壳在场', { timeout: 120_000 }, () => {
+    const temps = [-15, -5, 0, 8, 15, 25, 33]
+    const rains = [
+      { chance: 0, mm: 0 },
+      { chance: 70, mm: 1 },
+    ]
+    const winds = [1, 6, 12]
+    const uvs = [1, 9]
+    const acts: ActivityKind[] = [
+      'HOME', 'OFFICE', 'CLASS', 'WALKING', 'CYCLING', 'RUNNING', 'OUTDOOR_WORK', 'OUTDOOR_LEISURE', 'DRIVING',
+    ]
+    const coverage = { adequate: 0, marginal: 0, insufficient: 0, unknown: 0 }
+    let n = 0
+    for (const t of temps) {
+      for (const rain of rains) {
+        for (const w of winds) {
+          for (const uv of uvs) {
+            for (const act of acts) {
+              const o = {
+                mean: t,
+                amp: Math.min(4, Math.max(0, 40 - Math.abs(t))),
+                windMs: w,
+                rainChance: rain.chance,
+                rainMmPerHour: rain.mm,
+                uvMax: uv,
+              }
+              const r = planAt(o, { activity: act })
+              n++
+              const label = `${t}℃/雨${rain.mm}/${w}m/s/uv${uv}/${act}`
+              // 分数域
+              expect(Number.isFinite(r.dayScore), label).toBe(true)
+              expect(r.dayScore, label).toBeGreaterThanOrEqual(0)
+              expect(r.dayScore, label).toBeLessThanOrEqual(100)
+              for (const b of r.scoreBreakdown) {
+                expect(Number.isFinite(b.score), `${label}/${b.key}`).toBe(true)
+                expect(b.score, `${label}/${b.key}`).toBeGreaterThanOrEqual(0)
+                expect(b.score, `${label}/${b.key}`).toBeLessThanOrEqual(b.max)
+              }
+              const sum = r.scoreBreakdown.reduce((s, b) => s + b.score, 0)
+              expect(Math.abs(sum - r.dayScore), label).toBeLessThanOrEqual(0.2)
+              // 件不重复；贴身层两份从不下线
+              const ids = chosenIds(r)
+              expect(new Set(ids).size, label).toBe(ids.length)
+              const baseItems = r.dayOutfit.layers.filter((l) => l.role === 'BASE').flatMap((l) => l.items)
+              expect(baseItems.length, label).toBeGreaterThanOrEqual(2)
+              // 覆盖判定与放宽同向：合格 ⇒ 无未满足项；放宽 ⇒ 只能是不足
+              if (r.coverage.status === 'adequate') expect(r.coverage.unmetNeeds, label).toEqual([])
+              if (r.coverage.status === 'insufficient') expect(r.coverage.unmetNeeds.length, label).toBeGreaterThan(0)
+              if (r.coverage.status === 'unknown') expect(r.facts.hasHourly, label).toBe(false)
+              if (r.coverage.unmetNeeds.some((c) => c.startsWith('RELAXED_'))) {
+                expect(r.coverage.status, label).toBe('insufficient')
+              }
+              // 雨天安全侧：防水槽硬条件成立时，选中的壳必须真防水，绝不放宽
+              if (r.demand.vector.RAIN > 32 && !r.coverage.unmetNeeds.includes('RELAXED_PROTECTION')) {
+                const prot = r.dayOutfit.layers.find((l) => l.role === 'PROTECTION')
+                expect(prot, label).toBeTruthy()
+                expect(prot!.items[0].water, label).toBeGreaterThanOrEqual(0.9)
+              }
+              coverage[r.coverage.status]++
+            }
+          }
+        }
+      }
+    }
+    console.log(`S5-7|plans=${n}|coverage=${JSON.stringify(coverage)}`)
+    expect(n).toBe(756)
   })
 })

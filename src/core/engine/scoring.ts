@@ -1,12 +1,14 @@
 // OutfitScoringEngine：从候选组装一套完整穿搭并评分（确定性）
-// 组装 = beam 搜索取整卷最高分 + 搜后单件替换精修；逐槽都没有合格件时登记"被放宽"，不静默冒充合格推荐。
-// 评分按方案 §7.3 的分项满分制（合计 97；多样性 3 分与滞回一起排第五步）。
-// 默认偏好下风格/偏好分项取中性常数，不产生排序信号（与既有行为向后兼容）。
+// 组装 = beam 搜索取整卷最高分 + 搜后单件替换精修，再在分数接近时优先复用上一次组合；
+// 逐槽都没有合格件时登记"被放宽"，不静默冒充合格推荐。
+// 评分按方案 §7.3 的分项满分制（合计 100，含多样性 3 分）。
+// 默认偏好下风格/偏好/多样性分项取中性常数，不产生排序信号（与既有行为向后兼容）。
 
-import { COORDINATION, LAYERING, MATCHING, SCORING, STYLE } from '../config'
+import { CATALOG } from '../catalog'
+import { COORDINATION, LAYERING, MATCHING, SCORING, STABILITY, STYLE } from '../config'
 import type { ClothingItem, DemandVector, LayerRole, OutfitAssembly, ScoreBucket } from '../types'
 import type { EnsembleNeed, LayerSlot } from './layering'
-import { withinComfortFit } from './matching'
+import { poolForSlot, withinComfortFit } from './matching'
 import {
   colorFit,
   formalityFit,
@@ -75,7 +77,8 @@ export function assembleOutfit(
     paths = pruneToBest(next, demand, need, prefs)
   })
 
-  const best = polishPath(paths[0], slots, candidates, demand, need, prefs)
+  const polished = polishPath(paths[0], slots, candidates, demand, need, prefs)
+  const best = reuseIfStable(polished, slots, demand, need, prefs) ?? polished
   const assembly = computeAssembly(best.items, best.roles)
   // 槽位产生原因透传到层：界面「这层为什么存在」读的是真实决策依据，不是猜测
   attachSlotReasons(assembly, slots)
@@ -162,6 +165,41 @@ function polishPath(
   return best
 }
 
+/**
+ * 稳定性：上一次那套如果今天仍逐槽合格、且得分不比新搜出的差太多，就继续穿（换装惩罚）。
+ * 安全侧不妥协：任何一槽没有合格旧件（含防雨/防风/保暖硬条件）就直接放弃复用，走新搜索——
+ * 昨天没带壳的搭配在今天的雨天里不合格，自然被拒，安全升级永远优先。
+ */
+function reuseIfStable(
+  best: SearchPath,
+  slots: LayerSlot[],
+  demand: DemandVector,
+  need: EnsembleNeed,
+  prefs: ResolvedPrefs,
+): SearchPath | null {
+  const prevIds = prefs.previousItemIds
+  if (!prevIds?.length) return null
+  const byId = new Map(CATALOG.map((it) => [it.id, it]))
+  const prevItems = prevIds.map((id) => byId.get(id)).filter((it): it is ClothingItem => !!it)
+  if (prevItems.length < slots.length) return null
+  const poolIds = slots.map((s) => new Set(poolForSlot(s).map((p) => p.id)))
+  const used = new Set<string>()
+  const items: ClothingItem[] = []
+  for (let i = 0; i < slots.length; i++) {
+    const it = prevItems.find(
+      (x) => !used.has(x.id) && poolIds[i].has(x.id) && slotHardSatisfied(x, slots[i], need),
+    )
+    if (!it) return null
+    used.add(it.id)
+    items.push(it)
+  }
+  const roles = slots.map((s) => s.role)
+  const prevScore = scoreAssembly(computeAssembly(items, roles), demand, need, prefs)
+  const bestScore = scoreAssembly(computeAssembly(best.items, best.roles), demand, need, prefs)
+  if (prevScore < bestScore - STABILITY.reuseMargin) return null
+  return { items, roles, used, relaxed: [] }
+}
+
 /** 层 → 槽位 reasonCode（同角色多槽取第一个非空；贴身层恒在） */
 function attachSlotReasons(assembly: OutfitAssembly, slots: LayerSlot[]): void {
   const byRole = new Map<string, string>()
@@ -238,7 +276,8 @@ const round1 = (v: number) => Math.round(v * 10) / 10
 
 /**
  * 分项评分（方案 §7.3）：热舒适 25 / 天气防护 20 / 活动舒适 15 / 风格场合 18 /
- * 整套协调 10 / 可脱卸 5 / 用户偏好 4。硬过滤与安全判定不读分数，分数只决定"合格候选里谁排前面"。
+ * 整套协调 10 / 可脱卸 5 / 用户偏好 4 / 多样性 3。硬过滤与安全判定不读分数，
+ * 分数只决定"合格候选里谁排前面"。
  */
 export function scoreDetail(
   a: OutfitAssembly,
@@ -255,6 +294,7 @@ export function scoreDetail(
     { key: 'coordination', score: coordinationBucket(a, need), max: SCORING.buckets.coordination },
     { key: 'removable', score: removableBucket(a), max: SCORING.buckets.removable },
     { key: 'preference', score: preferenceBucket(items, prefs), max: SCORING.buckets.preference },
+    { key: 'diversity', score: diversityBucket(items, prefs), max: SCORING.buckets.diversity },
   ]
   const buckets = raw.map((b) => ({ ...b, score: round1(b.score) }))
   const total = clamp(round1(buckets.reduce((s, b) => s + b.score, 0)), 0, 100)
@@ -382,6 +422,18 @@ function preferenceBucket(items: ClothingItem[], prefs: ResolvedPrefs): number {
   const wsum = parts.reduce((s, p) => s + p.w, 0)
   const mixed = parts.reduce((s, p) => s + p.v * p.w, 0) / wsum
   return clamp(mixed * max, 0, max)
+}
+
+/**
+ * 多样性：与上一次实际入选项的重合度（无历史 = 中性满分，老用户没记录不背锅；
+ * 全换新件 = 满分，全同 = 0）。与复用规则同读 previousItemIds，两侧口径一致。
+ */
+function diversityBucket(items: ClothingItem[], prefs: ResolvedPrefs): number {
+  const max = SCORING.buckets.diversity
+  const prev = prefs.previousItemIds
+  if (!prev?.length || !items.length) return max
+  const novel = items.filter((it) => !prev.includes(it.id)).length / items.length
+  return clamp(novel * max, 0, max)
 }
 
 const avg = (items: ClothingItem[], f: (it: ClothingItem) => number): number =>

@@ -51,7 +51,7 @@ describe('S4-1 默认中性：标签不产生排序信号', () => {
   it('默认 plan：分项键齐全、和≈dayScore、风格与偏好为中性常数', () => {
     const r = planAt({ mean: 12, amp: 4 })
     expect(r.scoreBreakdown.map((b) => b.key)).toEqual([
-      'warmth', 'protection', 'activity', 'style', 'coordination', 'removable', 'preference',
+      'warmth', 'protection', 'activity', 'style', 'coordination', 'removable', 'preference', 'diversity',
     ])
     const byKey = new Map(r.scoreBreakdown.map((b) => [b.key, b.score]))
     expect(byKey.get('style')).toBe(14.4)

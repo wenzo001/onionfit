@@ -25,8 +25,8 @@ export function matchCandidates(
   return slots.map((slot) => pickForSlot(slot, demand, need, prefs))
 }
 
-/** 候选池：按角色 + 品类分池；严寒时厚外套也可作为保暖候选 */
-function poolForSlot(slot: LayerSlot): ClothingItem[] {
+/** 候选池：按角色 + 品类分池；严寒时厚外套也可作为保暖候选（复用判定也读它，保证同一套池子口径） */
+export function poolForSlot(slot: LayerSlot): ClothingItem[] {
   const pool = CATALOG.filter((it) => it.role === slot.role && it.category === slot.category)
   if (slot.acceptsWarmOuterwear) {
     pool.push(

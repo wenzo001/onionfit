@@ -149,6 +149,8 @@ export interface UserSettings {
   sweat?: SweatLevel
   /** 反馈历史（追加式；派生偏好有上下限、可撤销） */
   feedbackHistory?: FeedbackEntry[]
+  /** 上一次推荐的实际入选项 id（稳定性/多样性输入；缺省 = 无历史，不产生信号） */
+  previousItemIds?: string[]
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -419,9 +421,17 @@ export interface GeoClimateContext {
   missingInputs: string[]
 }
 
-/** 推荐分分项（方案 §7.3；多样性 3 分留待第五步的稳定性一起落地） */
+/** 推荐分分项（方案 §7.3；满分合计 100） */
 export interface ScoreBucket {
-  key: 'warmth' | 'protection' | 'activity' | 'style' | 'coordination' | 'removable' | 'preference'
+  key:
+    | 'warmth'
+    | 'protection'
+    | 'activity'
+    | 'style'
+    | 'coordination'
+    | 'removable'
+    | 'preference'
+    | 'diversity'
   score: number
   max: number
 }

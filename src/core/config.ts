@@ -267,11 +267,11 @@ export const UMBRELLA = {
 }
 
 /**
- * 评分（第四步重排为方案 §7.3 的分项满分制；起始值待第五步场景回归校准）
+ * 评分（第四步重排为方案 §7.3 的分项满分制，第五步补上多样性 3 分；满分合计 100）
  * 硬过滤与安全判定不读这里——分项只决定"合格候选里谁排前面"。
  */
 export const SCORING = {
-  /** 各分项满分，合计 97；多样性 3 分与滞回/复用一起排第五步 */
+  /** 各分项满分，合计 100 */
   buckets: {
     warmth: 25,
     protection: 20,
@@ -280,6 +280,7 @@ export const SCORING = {
     coordination: 10,
     removable: 5,
     preference: 4,
+    diversity: 3,
   },
   /** 欠暖惩罚（每差 1 clo 扣的分数）：穿少会冷，罚得比过暖重得多 */
   underWarmPenaltyPerClo: 22.5,
@@ -326,6 +327,15 @@ export const STYLE = {
   poolBonus: { style: 6, presentation: 4, silhouette: 3, color: 3 },
   /** 标签缺失时的命中回退分（0-1；有标签但不匹配的件得分更低时才有区分度） */
   unmatchedCredit: 0.4,
+}
+
+/**
+ * 稳定性与多样性（第五步，方案 §7.3）：只看「与上一次推荐的关系」，不碰安全与硬过滤。
+ * 多样性分项奖励换新；复用规则在分数接近时保持连续，天气小波动不整套换衣。
+ */
+export const STABILITY = {
+  /** 复用旧组合允许的让步分：新组合得分超出旧组合这么多以内，继续穿旧组合 */
+  reuseMargin: 3,
 }
 
 /** 暴露习惯 → 防雨需求的行前权重（长时户外放大窗口雨信号，室内压缩但不归零） */
