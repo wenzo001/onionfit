@@ -7,6 +7,7 @@ import SectionTitle from '@/components/SectionTitle.vue'
 import DemandBars from '@/components/DemandBars.vue'
 import WhyCard from '@/components/WhyCard.vue'
 import CheckupCard from '@/components/CheckupCard.vue'
+import CoverageCard from '@/components/CoverageCard.vue'
 import LayerCard from '@/components/LayerCard.vue'
 import StateBanner from '@/components/StateBanner.vue'
 import PageSkeleton from '@/components/PageSkeleton.vue'
@@ -68,6 +69,14 @@ const states = computed(() => activeStates.value.filter((s) => s.scope !== 'time
           sub="这套的匹配度"
         />
         <CheckupCard :rec="rec" />
+      </section>
+
+      <section class="col">
+        <SectionTitle
+          title="覆盖情况"
+          sub="衣物库够不够用，明说"
+        />
+        <CoverageCard :rec="rec" />
       </section>
       </template>
     </div>

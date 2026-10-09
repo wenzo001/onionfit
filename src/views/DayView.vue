@@ -16,6 +16,7 @@ import EventList from '@/components/EventList.vue'
 import DemandBars from '@/components/DemandBars.vue'
 import WhyCard from '@/components/WhyCard.vue'
 import CheckupCard from '@/components/CheckupCard.vue'
+import CoverageCard from '@/components/CoverageCard.vue'
 import PageSkeleton from '@/components/PageSkeleton.vue'
 import { usePlan } from '@/composables/usePlan'
 import { useBoundaryStates } from '@/composables/useBoundaryStates'
@@ -148,6 +149,7 @@ function onCta(action: 'refresh' | 'settings' | 'city') {
           </InkCard>
           <WhyCard :rec="view.rec" />
           <CheckupCard :rec="view.rec" />
+          <CoverageCard :rec="view.rec" />
         </section>
         </template>
       </div>

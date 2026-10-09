@@ -5,6 +5,7 @@
 import type {
   Accessory,
   ApparelLayer,
+  CoverageStatus,
   DemandDim,
   DemandVector,
   DayPart,
@@ -22,6 +23,8 @@ import type {
   WeatherKind,
 } from '@/core/types'
 import { localHourOf } from '@/core/engine/weather'
+import { UMBRELLA } from '@/core/config'
+import { fmtMinutes } from '@/core/engine/exposure'
 
 // ===== 基础格式化 =====
 
@@ -490,6 +493,159 @@ export function safetyAlert(s: SafetyReport, facts: RecommendationFacts): Safety
     .filter(([, v]) => typeof v === 'number' && v! > 0)
     .map(([k, v]) => `${DEMAND_META[k as DemandDim].label} ≥${Math.round(v as number)}`)
   return { title, body: s.warnings.join('　'), chips }
+}
+
+// ===== 覆盖情况（方案 §5.2：衣物库不够时不伪装成合格推荐） =====
+
+export type CoverageIcon = '!' | '~' | '✓' | '?'
+
+export interface CoverageRow {
+  label: string
+  value: string
+  note?: string
+}
+
+export interface CoverageFix {
+  title: string
+  note: string
+}
+
+export interface CoverageCopy {
+  status: CoverageStatus
+  icon: CoverageIcon
+  tone: 'pink' | 'yellow' | 'mint' | 'paper'
+  title: string
+  line: string
+  /** 差多少：需要 / 这套给 / 还差（或余量）；unknown 时为 null */
+  rows: CoverageRow[] | null
+  /** 库容量是另一回事：就算全穿最厚的也差多少；只在不合格时说 */
+  catalogLine: string | null
+  /** 可以这样补：措辞对齐方案 §5.2 的三条出路（减少暴露 / 更高等级装备 / 补目录） */
+  fixes: CoverageFix[]
+  /** 这套话能信几分 */
+  trust: { percent: number; factors: string[] }
+  /** 气候与通勤的口径说明（只解释怎么算的，不参与结论） */
+  scope: string[]
+}
+
+/** clo 缺口折算成人能听懂的「差几件」；分档对齐 config.ts COVERAGE 注释（0.4 ≈ 一件轻中层） */
+export function closetGapWords(clo: number): string | null {
+  if (clo >= 0.7) return '约一件厚羽绒或一条加绒长裤'
+  if (clo >= 0.4) return '约一件薄毛衣'
+  return null
+}
+
+const COVERAGE_META: Record<
+  CoverageStatus,
+  { icon: CoverageIcon; tone: CoverageCopy['tone']; title: string }
+> = {
+  insufficient: { icon: '!', tone: 'pink', title: '现有的衣服不够用' },
+  marginal: { icon: '~', tone: 'yellow', title: '刚好够，没有余量' },
+  adequate: { icon: '✓', tone: 'mint', title: '够用' },
+  unknown: { icon: '?', tone: 'paper', title: '拿不到足够数据' },
+}
+
+const SEASON_LABEL = { spring: '春季', summer: '夏季', autumn: '秋季', winter: '冬季' } as const
+
+/** 被放宽 / 找不到候选的层 → 人话（RELAXED_INSULATION → 保暖层的档位） */
+function relaxedWords(codes: ReasonCode[]): string[] {
+  const words = new Set<string>()
+  for (const c of codes) {
+    const m = /^(?:RELAXED|NO_CANDIDATE)_(BASE|INSULATION|PROTECTION)/.exec(c)
+    if (m) words.add(`${ROLE_LABEL[m[1] as ApparelLayer['role']]}的档位`)
+  }
+  return [...words]
+}
+
+/** 把 coverage 划成一条不伪装的结论（deck 12 的四种样子） */
+export function coverageCopy(r: OutfitRecommendation): CoverageCopy {
+  const c = r.coverage
+  const meta = COVERAGE_META[c.status]
+  const atHour = `最冷 ${r.thermal.maxRequiredCloHour}:00`
+  const req = c.requiredClo
+  const avail = c.availableClo
+  const deficit = c.deficitClo
+  const margin = Math.round((avail - req) * 100) / 100
+
+  let line: string
+  if (c.status === 'unknown') line = '没有逐时预报，只能按日级估计，没法确认这套够不够。'
+  else if (c.status === 'adequate') line = `${atHour} 需要 ${req} clo，这套还有 ${margin} clo 余量。`
+  else if (deficit > 0) line = `${atHour} 需要 ${req} clo，这套只给到 ${avail} clo。`
+  else line = `${atHour} 需要 ${req} clo，这套只剩 ${margin} clo 余量。`
+
+  const rows: CoverageRow[] | null =
+    c.status === 'unknown'
+      ? null
+      : [
+          { label: '需要', value: `${req} clo`, note: `（${atHour}）` },
+          { label: '这套给', value: `${avail} clo` },
+          deficit > 0
+            ? { label: '还差', value: `${deficit} clo`, note: closetGapWords(deficit) ?? undefined }
+            : { label: '余量', value: `${margin} clo` },
+        ]
+
+  const catalogWords = closetGapWords(c.catalogDeficitClo)
+  const catalogLine =
+    c.status === 'insufficient' && c.catalogDeficitClo > 0
+      ? `就算把库里最厚的都穿上，也只能凑到 ${c.capacityClo} clo${catalogWords ? `，还差${catalogWords}` : `，还差 ${c.catalogDeficitClo} clo`}。`
+      : null
+
+  const fixes: CoverageFix[] = []
+  const add = (title: string, note: string) => fixes.push({ title, note })
+  if (c.status === 'unknown') {
+    add('连上网再算一次', '有逐时预报后才能给出确定结论。')
+  } else {
+    const canSwap = Math.round((c.capacityClo - avail) * 100) / 100 > 0.05
+    if (deficit > 0) add('缩短户外时间', '最冷的通勤段尽量压短，先按这套撑。')
+    if (canSwap && (deficit > 0 || c.status === 'marginal')) {
+      add(
+        '换上更厚的档位',
+        c.catalogDeficitClo > 0
+          ? `换上库里最厚的组合能到 ${c.capacityClo} clo。`
+          : `换上库里最厚的组合能到 ${c.capacityClo} clo，够补齐这套的缺口。`,
+      )
+    }
+    if (c.catalogDeficitClo > 0) {
+      const roles = relaxedWords(c.unmetNeeds)
+      add(
+        '添置更高等级的单品',
+        roles.length
+          ? `按硬条件找不到合适的${roles.join('、')}，加进来就能补齐。`
+          : `库里最厚仍差 ${c.catalogDeficitClo} clo，需要添置更高等级的单品。`,
+      )
+    }
+  }
+
+  const scope: string[] = []
+  if (r.geo.season !== 'unknown' && r.geo.hemisphere !== 'unknown') {
+    scope.push(`${r.geo.hemisphere === 'north' ? '北半球' : '南半球'} · ${SEASON_LABEL[r.geo.season]}`)
+  } else {
+    scope.push('位置缺失，没有采用气候带')
+  }
+  if (r.umbrella.reasons.includes('assumed-commute-time')) {
+    scope.push(
+      `通勤时刻是估算的（默认 ${fmtMinutes(UMBRELLA.fallbackOutMinutes)} / ${fmtMinutes(UMBRELLA.fallbackHomeMinutes)} 兜底）`,
+    )
+  } else if (r.umbrella.reasons.includes('commute-passed')) {
+    scope.push('两段通勤都过了，改按此刻起的一段估')
+  }
+
+  return {
+    status: c.status,
+    ...meta,
+    line,
+    rows,
+    catalogLine,
+    fixes,
+    trust: {
+      percent: Math.round(c.confidence * 100),
+      factors: [
+        r.facts.hasHourly ? '有逐时预报' : '无逐时预报 · 按日级估计',
+        r.geo.dataSource === 'forecast' ? '位置来自天气源' : '位置缺失 · 通用模型',
+      ],
+    },
+    scope,
+  }
 }
 
 // ===== 明日（Q5：压成一行，只在有变化时出现） =====
