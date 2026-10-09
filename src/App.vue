@@ -103,6 +103,8 @@ watch(
   // dvh：移动浏览器的地址栏收放会改视口高度，用 vh 会永远多出一截可滚的空白
   min-height: 100vh;
   min-height: 100dvh;
+  // 状态栏/刘海留白交给每一屏自己的顶边处理（.screen / 选城页的 .topbar）：
+  // 放在这里会让钉住的搜索栏与留白叠两次，或者钉住时反而压进状态栏
   // 底部 Tab 已固定，内容靠这条让开，最后一张卡不会被压住
   padding-bottom: calc(var(--tabbar-h) + #{$sp} + env(safe-area-inset-bottom, 0px));
   background: var(--paper);

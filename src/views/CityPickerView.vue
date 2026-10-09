@@ -194,7 +194,8 @@ function goBack() {
   background: var(--paper);
 }
 
-/* 钉住的搜索区：横向用负 margin 铺满，滚过去的结果列表才不会从它两侧露出来 */
+/* 钉住的搜索区：横向用负 margin 铺满，滚过去的结果列表才不会从它两侧露出来。
+   留白写在它自己身上 —— 钉住与未钉住两种状态都刚好在状态栏下方 */
 .topbar {
   position: sticky;
   top: 0;

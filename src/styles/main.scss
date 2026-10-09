@@ -194,7 +194,8 @@ input[type='search']::-webkit-search-decoration {
   // 1fr 的默认 min 是 auto，横向滚动内容会把列撑破 → 一律 minmax(0,1fr)
   grid-template-columns: minmax(0, 1fr);
   gap: #{$gap-card};
-  padding: #{$sp} #{$page-pad} #{$sp * 4};
+  // 顶边自带状态栏/刘海留白：独立模式下第一张卡不会藏进刘海里
+  padding: calc(env(safe-area-inset-top, 0px) + #{$sp}) #{$page-pad} #{$sp * 4};
   align-items: start;
 }
 
@@ -213,7 +214,7 @@ input[type='search']::-webkit-search-decoration {
 @media (min-width: $bp-tablet) {
   .screen {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    padding: #{$sp * 2} #{$sp * 3} #{$sp * 5};
+    padding: calc(env(safe-area-inset-top, 0px) + #{$sp * 2}) #{$sp * 3} #{$sp * 5};
   }
 
   .span-all {

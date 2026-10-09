@@ -165,7 +165,6 @@ function onCta(action: 'refresh' | 'settings' | 'city') {
 
 .content {
   position: relative;
-  padding-top: env(safe-area-inset-top, 0px);
 }
 
 .pull {
