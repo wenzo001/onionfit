@@ -9,21 +9,31 @@ import type {
   DemandDim,
   DemandVector,
   DayPart,
+  ExposureHabit,
   HourlyEnvironment,
+  LayerRole,
+  Occasion,
   OutfitAssembly,
   OutfitRecommendation,
   ReasonCode,
   RecommendationFacts,
   SafetyReport,
+  ScoreBucket,
+  StyleTag,
   TimelineEvent,
   UmbrellaAssessment,
   UmbrellaLeg,
   UmbrellaVerdict,
+  UserSettings,
   WeatherDay,
   WeatherKind,
 } from '@/core/types'
 import { localHourOf } from '@/core/engine/weather'
-import { UMBRELLA } from '@/core/config'
+import { CATALOG } from '@/core/catalog'
+import { computeAssembly, scoreDetail as engineScoreDetail } from '@/core/engine/scoring'
+import { neutralPrefs, resolvePrefs } from '@/core/engine/prefs'
+import { SELECTABLE_ACTIVITIES, resolveActivity } from '@/core/engine/activity'
+import { EXPOSURE_HABIT, UMBRELLA } from '@/core/config'
 import { fmtMinutes } from '@/core/engine/exposure'
 
 // ===== 基础格式化 =====
@@ -747,6 +757,241 @@ export const ROLE_LABEL: Record<ApparelLayer['role'], string> = {
   PROTECTION: '防护层',
   INSULATION: '保暖层',
   BASE: '贴身层',
+}
+
+// ===== 为什么是这套（deck 13）：每条理由都标出处 =====
+// 出处枚举与方案 §9 reasons[].source 同源；句子本身全部来自引擎，presentation 只做归类与拼接
+
+export type WhySource = 'weather' | 'profile' | 'safety' | 'style' | 'fallback'
+
+export const WHY_SOURCE_LABEL: Record<WhySource, string> = {
+  weather: '天气',
+  profile: '个人',
+  safety: '安全',
+  style: '风格',
+  fallback: '兜底',
+}
+
+export interface WhyReason {
+  source: WhySource
+  text: string
+}
+
+const DIM_WORD: Record<DemandDim, string> = {
+  WARMTH: '保暖',
+  WIND: '防风',
+  RAIN: '防雨',
+  BREATHABILITY: '透气',
+  SOLAR: '防晒',
+  REMOVABLE: '可脱卸',
+}
+
+const ACTIVITY_LABEL = new Map(SELECTABLE_ACTIVITIES.map((a) => [a.value, a.label]))
+
+export const STYLE_LABEL: Record<StyleTag, string> = {
+  DAILY: '日常简约',
+  COMMUTE: '通勤',
+  BUSINESS: '商务',
+  SPORT: '运动',
+  OUTDOOR: '户外机能',
+  STREET: '街头',
+  JAPANESE_LOOSE: '日系宽松',
+  KOREAN_CLEAN: '韩系干净',
+}
+
+export const OCCASION_LABEL: Record<Occasion, string> = {
+  DAILY: '日常',
+  OFFICE: '办公',
+  SCHOOL: '校园',
+  SPORT: '运动',
+  OUTDOOR_WORK: '户外工作',
+  FORMAL: '正式',
+}
+
+const HABIT_LABEL: Record<ExposureHabit, string> = {
+  MAINLY_INDOOR: '室内为主',
+  SHORT_OUTDOOR: '短时户外',
+  LONG_OUTDOOR: '长时户外',
+}
+
+/**
+ * 为什么是这套：天气->个人->安全->风格的顺序，天气句按需求强度取前几维，
+ * 「当前运动自带风感」这类个人句子从天气句里摘出来单列。
+ */
+export function whyReasons(r: OutfitRecommendation, settings?: UserSettings): WhyReason[] {
+  const v = r.demand.vector
+  const byDim = r.demand.reasons
+
+  const dims = (Object.keys(v) as DemandDim[])
+    .filter((d) => (byDim[d]?.length ?? 0) > 0)
+    .sort((a, b) => v[b] - v[a])
+
+  const weather: string[] = []
+  const profile: string[] = []
+  for (const d of dims) {
+    for (const s of byDim[d] ?? []) {
+      if (s.startsWith('当前运动')) profile.push(s)
+      else weather.push(s)
+    }
+  }
+
+  const out: WhyReason[] = weather.slice(0, 4).map((text) => ({ source: 'weather' as const, text }))
+
+  if (settings) {
+    const act = resolveActivity(settings.activity)
+    const label = ACTIVITY_LABEL.get(settings.activity)
+    if (label) {
+      const tail = act.rainExposure >= 0.8 ? '户外暴露久，风雨按全程算' : '按它的代谢与暴露修正'
+      profile.push(`选的是「${label}」，${tail}`)
+    }
+    if (settings.exposureHabit && settings.exposureHabit !== 'SHORT_OUTDOOR') {
+      profile.push(
+        `暴露习惯「${HABIT_LABEL[settings.exposureHabit]}」把防雨权重 ×${EXPOSURE_HABIT[settings.exposureHabit]}`,
+      )
+    }
+    const bias = resolvePrefs(settings).warmthBiasClo
+    if (bias !== 0) {
+      profile.push(`「偏冷 / 偏热」反馈折算成保暖目标 ${bias > 0 ? '+' : ''}${bias} clo`)
+    }
+  }
+  out.push(...profile.slice(0, 2).map((text) => ({ source: 'profile' as const, text })))
+
+  const safetyWords = r.safety.warnings.slice(0, 2)
+  const forced = (Object.entries(r.safety.forcedDemands) as [DemandDim, number][]).sort(
+    (a, b) => b[1] - a[1],
+  )[0]
+  for (const text of safetyWords) out.push({ source: 'safety', text })
+  if (forced) {
+    out.push({ source: 'safety', text: `${DIM_WORD[forced[0]]}需求被强制抬到 ${forced[1]}（安全规则先行）` })
+  }
+
+  if (settings?.styles?.length) {
+    const s = r.scoreBreakdown.find((b) => b.key === 'style')
+    const names = settings.styles.map((x) => STYLE_LABEL[x]).join('、')
+    out.push({
+      source: 'style',
+      text: `「${names}」参与排序（风格/场合 ${fmtScore(s?.score ?? 0)}/${s?.max ?? 18}）`,
+    })
+  }
+  if (settings?.occasion && settings.occasion !== 'DAILY') {
+    out.push({ source: 'style', text: `按「${OCCASION_LABEL[settings.occasion]}」场合对齐正式度` })
+  }
+
+  if (!out.length) out.push({ source: 'fallback', text: '今天没有突出的需求项，按中性组合配的' })
+  return out
+}
+
+// ===== 这套好在哪：8 个分项 =====
+
+export const BUCKET_LABEL: Record<ScoreBucket['key'], string> = {
+  warmth: '热舒适 / 保暖匹配',
+  protection: '天气防护',
+  activity: '活动舒适',
+  style: '风格 / 场合一致',
+  coordination: '整套协调',
+  removable: '可脱卸 / 温差适配',
+  preference: '用户偏好',
+  diversity: '多样性',
+}
+
+export interface ScoreRow {
+  label: string
+  value: string
+}
+
+const fmtScore = (v: number): string => (Number.isInteger(v) ? `${v}` : v.toFixed(1))
+
+/** 分项行：数字原样来自引擎 scoreBreakdown，不在这里重算 */
+export function scoreRows(r: OutfitRecommendation): ScoreRow[] {
+  return r.scoreBreakdown.map((b) => ({ label: BUCKET_LABEL[b.key], value: `${fmtScore(b.score)}/${b.max}` }))
+}
+
+/** 推荐分不是安全等级：分数只谈匹配度，安全是另一条独立判定线（deck 13） */
+export function scoreSafetyNote(r: OutfitRecommendation): { line: string; levelLine: string; rule: string } {
+  const n = r.safety.warnings.length
+  return {
+    line: `${Math.round(r.dayScore)} 分只表示「这套和当前需求有多匹配」。安全是另一条独立的判定线 —— 今天 ${r.safety.level}${n ? `，有 ${n} 条预警` : '，没有预警'}。`,
+    levelLine: `安全等级 ${r.safety.level} · 独立于推荐分`,
+    rule: '安全规则先执行，分数后计算；风格再合适也不能让防护硬条件失效。',
+  }
+}
+
+// ===== 为什么不是那件厚的：换上更厚的单件后重算一遍，用引擎分数说话 =====
+
+export interface ThickAlternative {
+  rejected: { name: string; clo: number; note: string }
+  chosen: { names: string; clo: number; note: string }
+}
+
+/**
+ * 反事实对比：在「同类更厚且没穿」的件里取最厚的一件，把它换上后重算整套分。
+ * 分数反而更低才给结论；结论里的每个数字都来自这次重算，不另造口径。
+ */
+export function thickAlternative(r: OutfitRecommendation, settings?: UserSettings): ThickAlternative | null {
+  const chosen = r.dayOutfit.layers.flatMap((l) => l.items)
+  const roles = r.dayOutfit.layers.flatMap((l) => l.items.map((): LayerRole => l.role))
+  if (!chosen.length) return null
+
+  const worn = new Set(chosen.map((it) => it.id))
+  // 「那件厚的」必须真的比同部位在穿的更厚：肩上没穿这一类（盛夏只有背心短裤）或已经穿着最厚的，都不谈
+  const maxWorn = new Map<string, number>()
+  chosen.forEach((c, i) => {
+    if (roles[i] === 'BASE') return
+    maxWorn.set(c.category, Math.max(maxWorn.get(c.category) ?? 0, c.insulationClo))
+  })
+  const thicker = CATALOG.filter(
+    (it) => !worn.has(it.id) && it.insulationClo > (maxWorn.get(it.category) ?? Infinity),
+  )
+  if (!thicker.length) return null
+  const alt = thicker.reduce((a, b) => (b.insulationClo > a.insulationClo ? b : a))
+
+  const need = { requiredClo: r.coverage.requiredClo, designHourTempC: r.facts.designHourTempC }
+  const prefs = settings ? resolvePrefs(settings) : neutralPrefs()
+  const base = computeAssembly(chosen, roles)
+  const baseDetail = engineScoreDetail(base, r.demand.vector, need, prefs)
+
+  const keptIdx = chosen.map((c, i) => (c.category === alt.category ? -1 : i)).filter((i) => i >= 0)
+  const altAssembly = computeAssembly(
+    [...keptIdx.map((i) => chosen[i]), alt],
+    [...keptIdx.map((i) => roles[i]), alt.role],
+  )
+  const altDetail = engineScoreDetail(altAssembly, r.demand.vector, need, prefs)
+  if (altDetail.total >= baseDetail.total) return null
+
+  const bucket = (d: { buckets: ScoreBucket[] }, k: ScoreBucket['key']) =>
+    d.buckets.find((b) => b.key === k)?.score ?? 0
+  const clauses: string[] = []
+  const removableDelta = bucket(altDetail, 'removable') - bucket(baseDetail, 'removable')
+  if (removableDelta < 0) {
+    clauses.push(
+      `它脱不掉，可脱卸分从 ${fmtScore(bucket(baseDetail, 'removable'))} 掉到 ${fmtScore(bucket(altDetail, 'removable'))}`,
+    )
+  }
+  if (altAssembly.effectiveClo > need.requiredClo + 0.05) {
+    clauses.push(`有效 ${round1(altAssembly.effectiveClo)} clo 超过所需的 ${need.requiredClo}，回暖会闷`)
+  }
+  if (bucket(altDetail, 'activity') < bucket(baseDetail, 'activity')) {
+    clauses.push(`整件 ${alt.weightGrams} g，活动舒适被压`)
+  }
+  if (bucket(altDetail, 'protection') < bucket(baseDetail, 'protection')) {
+    clauses.push('防护属性不如这套，风和雨的分掉了')
+  }
+  const note = clauses.slice(0, 2).join('；') || `综合匹配分 ${altDetail.total}，低于这套的 ${baseDetail.total}`
+
+  const stack = chosen.filter((_, i) => roles[i] !== 'BASE')
+  const names = (stack.length ? stack : chosen).map((it) => it.name)
+  const margin = Math.round((base.effectiveClo - need.requiredClo) * 100) / 100
+  return {
+    rejected: { name: alt.name, clo: round1(alt.insulationClo), note },
+    chosen: {
+      names: names.length > 3 ? `${names.slice(0, 3).join(' + ')}…` : names.join(' + '),
+      clo: round1(base.effectiveClo),
+      note:
+        margin >= -0.05
+          ? `正好够用${base.removableCount > 0 ? '，还能随时脱' : ''}`
+          : `还差 ${Math.abs(margin)} clo，但换上厚的更不划算`,
+    },
+  }
 }
 
 // ===== 8 个边界状态（设计上必须覆盖，不允许假装确定） =====

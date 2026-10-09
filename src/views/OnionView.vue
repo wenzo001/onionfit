@@ -6,6 +6,7 @@ import InkCard from '@/components/InkCard.vue'
 import SectionTitle from '@/components/SectionTitle.vue'
 import DemandBars from '@/components/DemandBars.vue'
 import WhyCard from '@/components/WhyCard.vue'
+import WhyThisCard from '@/components/WhyThisCard.vue'
 import CheckupCard from '@/components/CheckupCard.vue'
 import CoverageCard from '@/components/CoverageCard.vue'
 import LayerCard from '@/components/LayerCard.vue'
@@ -15,7 +16,7 @@ import { usePlan } from '@/composables/usePlan'
 import { useBoundaryStates } from '@/composables/useBoundaryStates'
 
 const router = useRouter()
-const { weather, recommendation } = usePlan()
+const { weather, recommendation, settings } = usePlan()
 const { activeStates } = useBoundaryStates(weather, recommendation)
 const rec = computed(() => recommendation.value)
 const states = computed(() => activeStates.value.filter((s) => s.scope !== 'timeline'))
@@ -61,6 +62,17 @@ const states = computed(() => activeStates.value.filter((s) => s.scope !== 'time
           sub="从上到下 = 从外到内"
         />
         <WhyCard :rec="rec" />
+      </section>
+
+      <section class="col">
+        <SectionTitle
+          title="为什么是这套"
+          sub="每条理由都标出处"
+        />
+        <WhyThisCard
+          :rec="rec"
+          :settings="settings.settings"
+        />
       </section>
 
       <section class="col">
