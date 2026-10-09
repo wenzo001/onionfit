@@ -9,101 +9,8 @@ import { scoreAssembly, computeAssembly, assembleOutfit } from './scoring'
 import { ACTIVITY, LAYERING } from '../config'
 import { SELECTABLE_ACTIVITIES } from './activity'
 import { assessUmbrella } from './umbrella'
-import type { ActivityKind, ClothingItem, DemandVector, UserSettings, WeatherReport, HourlyEnvironment } from '@/core/types'
-
-const DATE = '2026-09-25'
-
-interface Opts {
-  mean?: number
-  amp?: number
-  windMs?: number
-  rh?: number
-  rainChance?: number
-  rainMmPerHour?: number
-  uvMax?: number
-  hourly?: boolean
-}
-
-function makeReport(o: Opts = {}): WeatherReport {
-  const mean = o.mean ?? 10
-  const amp = o.amp ?? 5
-  const wind = o.windMs ?? 2
-  const rh = o.rh ?? 60
-  const chance = o.rainChance ?? 0
-  const mm = o.rainMmPerHour ?? 0
-  const uv = o.uvMax ?? 2
-  const hourlyFlag = o.hourly ?? true
-  const temps = Array.from({ length: 24 }, (_, i) =>
-    Math.round((mean + amp * Math.sin(((i - 9) / 24) * 2 * Math.PI)) * 100) / 100,
-  )
-  const hourly: HourlyEnvironment[] = temps.map((t, i) => ({
-    time: `${DATE}T${String(i).padStart(2, '0')}:00`,
-    temperatureC: t,
-    humidityPercent: rh,
-    windSpeedMs: wind,
-    windDirectionDeg: 90,
-    precipitationMmPerHour: (i === 8 || i === 18) && mm > 0 ? mm : 0,
-    precipitationProbabilityPercent: chance,
-    kind: chance >= 60 ? 'rain' : 'clear',
-    cloudCoverPercent: 40,
-    uvIndex: i >= 8 && i <= 16 ? uv : 0,
-    solarRadiationWm2: i >= 8 && i <= 16 ? 420 : 0,
-    solarElevationDeg: i > 6 && i < 18 ? 40 : 0,
-    isDay: i > 6 && i < 18,
-    vaporPressureHpa: 15,
-    sourceFeelsLikeC: t,
-    fromForecast: true,
-  }))
-  const day = (chanceP: number) => ({
-    date: DATE,
-    minC: Math.min(...temps),
-    maxC: Math.max(...temps),
-    dayKind: (chanceP >= 30 ? 'rain' : 'clear') as 'rain' | 'clear',
-    sunrise: '06:10',
-    sunset: '18:20',
-    rainMm: mm * 2,
-    rainChancePercent: chanceP,
-    uvMax: uv,
-  })
-  return {
-    lat: 31.2304,
-    lon: 121.4737,
-    timezone: 'Asia/Shanghai',
-    generatedAt: `${DATE}T06:00:00.000Z`,
-    current: {
-      temperatureC: temps[8],
-      feelsLikeC: temps[8],
-      humidityPercent: rh,
-      windSpeedMs: wind,
-      precipitationProbabilityPercent: chance,
-      condition: chance >= 60 ? 'rain' : 'clear',
-      isDay: true,
-    },
-    hourly,
-    daily: [day(chance), day(chance)],
-    source: 'open-meteo',
-    hasHourlyForecast: hourlyFlag,
-  }
-}
-
-function settings(over: Partial<UserSettings> = {}): UserSettings {
-  return {
-    profile: 'ADULT',
-    sensitivity: 'NORMAL',
-    activity: 'WALKING',
-    outTime: '08:00',
-    homeTime: '18:00',
-    ...over,
-  }
-}
-
-function planAt(o: Opts, s: Partial<UserSettings> = {}, hour = 8) {
-  return plan({
-    report: makeReport(o),
-    settings: settings(s),
-    now: new Date(`${DATE}T${String(hour).padStart(2, '0')}:00:00`),
-  })
-}
+import type { ActivityKind, ClothingItem, DemandVector, WeatherReport } from '@/core/types'
+import { DATE, makeReport, settings, planAt, type Opts } from './test-scenarios'
 
 /** 组合里最暖的一件（用于判断厚外套是否可达） */
 const warmest = (items: ClothingItem[]) => Math.max(0, ...items.map((i) => i.insulationClo))
@@ -208,14 +115,14 @@ describe('P0-3b 组装失败不静默兜底（全部候选不合格也要登记�
   const demand: DemandVector = { WARMTH: 0, WIND: 0, RAIN: 80, BREATHABILITY: 0, SOLAR: 0, REMOVABLE: 0 }
 
   it('没有一件满足槽位硬条件：登记 RELAXED，不冒充合格', () => {
-    const res = assembleOutfit([rainSlot], [[mkItem('不防水外套', 0.3)]], demand, { requiredClo: 0 })
+    const res = assembleOutfit([rainSlot], [[mkItem('不防水外套', 0.3)]], demand, { requiredClo: 0, designHourTempC: 10 })
     expect(res.relaxedCodes).toEqual(['RELAXED_PROTECTION'])
     // 尽力而为的组合仍给界面展示，但必须带着未满足标记
     expect(res.chosen.length).toBe(1)
   })
 
   it('候选池为空：登记 NO_CANDIDATE，不产生凭空衣物', () => {
-    const res = assembleOutfit([rainSlot], [[]], demand, { requiredClo: 0 })
+    const res = assembleOutfit([rainSlot], [[]], demand, { requiredClo: 0, designHourTempC: 10 })
     expect(res.relaxedCodes).toEqual(['NO_CANDIDATE_PROTECTION_OUTER'])
     expect(res.chosen.length).toBe(0)
   })
@@ -267,14 +174,14 @@ describe('P0-4 保暖评分目标随场景，且欠保暖罚得更重', () => {
     return computeAssembly([item])
   }
   it('同一需求下，欠保暖的组合得分低于略微过暖的组合', () => {
-    const under = scoreAssembly(mk(1.5), demand, { requiredClo: 2.0 })
-    const over = scoreAssembly(mk(2.5), demand, { requiredClo: 2.0 })
+    const under = scoreAssembly(mk(1.5), demand, { requiredClo: 2.0, designHourTempC: 10 })
+    const over = scoreAssembly(mk(2.5), demand, { requiredClo: 2.0, designHourTempC: 10 })
     expect(over).toBeGreaterThan(under)
   })
   it('目标不再是固定 1.0 clo：同一套衣服在恰好匹配的场景得分严格更高', () => {
     const a = mk(1.6)
-    const cold = scoreAssembly(a, demand, { requiredClo: 2.6 })
-    const mild = scoreAssembly(a, demand, { requiredClo: 1.6 })
+    const cold = scoreAssembly(a, demand, { requiredClo: 2.6, designHourTempC: 10 })
+    const mild = scoreAssembly(a, demand, { requiredClo: 1.6, designHourTempC: 10 })
     expect(mild).toBeGreaterThan(cold)
   })
 })

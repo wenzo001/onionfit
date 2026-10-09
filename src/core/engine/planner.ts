@@ -20,7 +20,7 @@ import { resolveActivity } from './activity'
 import { buildHourlyThermal } from './thermal'
 import { assessSafety } from './safety'
 import { buildDemandVector } from './requirement'
-import { planLayerSlots, type LayerSlot } from './layering'
+import { planLayerSlots, type EnsembleNeed, type LayerSlot } from './layering'
 import { matchCandidates, capacityCandidates } from './matching'
 import { assembleOutfit, computeAssembly } from './scoring'
 import { buildDayParts, buildTimeline } from './schedule'
@@ -126,7 +126,7 @@ export function plan({ report, settings, now = new Date() }: PlanInput): OutfitR
     coverage: buildCoverage(
       demand.requiredClo,
       dayOutfit.effectiveClo,
-      capacityFor(slots),
+      capacityFor(slots, need),
       ctx.hasHourly,
       relaxedCodes,
     ),
@@ -182,10 +182,13 @@ function applyNowConditions(
 }
 
 /** 同样的槽位结构，库里最多能凑到多少有效保暖 */
-function capacityFor(slots: LayerSlot[]): number {
-  const items = capacityCandidates(slots)
-  if (!items.length) return 0
-  return computeAssembly(items, slots.map((s) => s.role)).effectiveClo
+function capacityFor(slots: LayerSlot[], need: EnsembleNeed): number {
+  const pairs = capacityCandidates(slots, need)
+  if (!pairs.length) return 0
+  return computeAssembly(
+    pairs.map((p) => p.item),
+    pairs.map((p) => p.role),
+  ).effectiveClo
 }
 
 /** 衣物库够不够用：分清「这套偏薄」与「库里根本没有」两件事 */

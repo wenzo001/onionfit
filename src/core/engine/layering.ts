@@ -27,6 +27,11 @@ export interface WarmthNeed {
   requiredClo: number
 }
 
+/** 选衣/协调用的需求：保暖缺口之外再带设计时刻气温（反季过滤与上下装协调都要读它） */
+export interface EnsembleNeed extends WarmthNeed {
+  designHourTempC: number
+}
+
 /** 第一保暖槽的衣物下限：缺口越大，要求单件越厚 */
 function firstSlotMinClo(requiredClo: number): number {
   const bands = LAYERING.insulationTierBandClo

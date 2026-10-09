@@ -1,9 +1,10 @@
 // OutfitScoringEngine：从候选组装一套完整穿搭并评分（确定性）
-// 组合方式：逐层取第一个满足硬约束的候选；都不满足时记录"被放宽"，不静默冒充合格推荐。
+// 组装 = 在所有槽位组合上做 beam 搜索取整卷最高分；逐槽都没有合格件时登记"被放宽"，不静默冒充合格推荐。
 
-import { LAYERING, SCORING } from '../config'
+import { COORDINATION, LAYERING, MATCHING, SCORING } from '../config'
 import type { ClothingItem, DemandVector, LayerRole, OutfitAssembly } from '../types'
-import type { LayerSlot, WarmthNeed } from './layering'
+import type { EnsembleNeed, LayerSlot } from './layering'
+import { withinComfortFit } from './matching'
 
 export interface AssembledOutfit {
   assembly: OutfitAssembly
@@ -13,46 +14,77 @@ export interface AssembledOutfit {
   relaxedCodes: string[]
 }
 
-/** 依据槽位与候选，组装一套穿搭 */
+/** 搜索路径：逐槽累积的件、角色、已用件与被放宽的约束 */
+interface SearchPath {
+  items: ClothingItem[]
+  roles: LayerRole[]
+  used: Set<string>
+  relaxed: string[]
+}
+
+/**
+ * 依据槽位与候选，联合搜索整卷得分最高的一套穿搭。
+ * 逐槽贪心"取第一个合格件"会让上身补齐了、下身还在过薄处打转；联合评分把上下装放同一卷里比较。
+ */
 export function assembleOutfit(
   slots: LayerSlot[],
   candidates: ClothingItem[][],
   demand: DemandVector,
-  need: WarmthNeed,
+  need: EnsembleNeed,
 ): AssembledOutfit {
-  const chosen: ClothingItem[] = []
-  const slotRoles: LayerRole[] = []
-  const used = new Set<string>()
-  const relaxedCodes: string[] = []
+  let paths: SearchPath[] = [{ items: [], roles: [], used: new Set(), relaxed: [] }]
 
   slots.forEach((slot, i) => {
     const pool = candidates[i] ?? []
-    let pick: ClothingItem | undefined
-    for (const it of pool) {
-      if (used.has(it.id)) continue // 双保暖槽不得选同一件
-      if (slotHardSatisfied(it, slot)) {
-        pick = it
-        break
+    const next: SearchPath[] = []
+    for (const p of paths) {
+      const available = pool.filter((it) => !p.used.has(it.id))
+      const ok = available.filter((it) => slotHardSatisfied(it, slot, need))
+      if (ok.length) {
+        for (const it of ok) next.push(extend(p, it, slot.role, []))
+      } else if (available.length) {
+        // 没有一件满足硬条件：保留"尽力而为"的组合给界面展示，但必须登记未满足项
+        next.push(extend(p, available[0], slot.role, [`RELAXED_${slot.role}`]))
+      } else {
+        next.push({
+          ...p,
+          used: new Set(p.used),
+          relaxed: [...p.relaxed, `NO_CANDIDATE_${slot.role}_${slot.category}`],
+        })
       }
     }
-    if (!pick) {
-      // 没有一件满足硬条件：保留"尽力而为"的组合给界面展示，但必须登记未满足项
-      pick = pool.find((it) => !used.has(it.id)) ?? undefined
-      if (pick) relaxedCodes.push(`RELAXED_${slot.role}`)
-      else relaxedCodes.push(`NO_CANDIDATE_${slot.role}_${slot.category}`)
-    }
-    if (pick) {
-      chosen.push(pick)
-      slotRoles.push(slot.role)
-      used.add(pick.id)
-    }
+    paths = pruneToBest(next, demand, need)
   })
 
-  const assembly = computeAssembly(chosen, slotRoles)
+  const best = paths[0]
+  const assembly = computeAssembly(best.items, best.roles)
   // 槽位产生原因透传到层：界面「这层为什么存在」读的是真实决策依据，不是猜测
   attachSlotReasons(assembly, slots)
-  const score = scoreAssembly(assembly, demand, need)
-  return { assembly, chosen, score, relaxedCodes }
+  return {
+    assembly,
+    chosen: best.items,
+    score: scoreAssembly(assembly, demand, need),
+    relaxedCodes: best.relaxed,
+  }
+}
+
+function extend(p: SearchPath, it: ClothingItem, role: LayerRole, relaxed: string[]): SearchPath {
+  return {
+    items: [...p.items, it],
+    roles: [...p.roles, role],
+    used: new Set(p.used).add(it.id),
+    relaxed: [...p.relaxed, ...relaxed],
+  }
+}
+
+/** beam 剪枝：按"目前为止整卷得分"保留前 beamWidth 支（稳定排序，保证确定性） */
+function pruneToBest(paths: SearchPath[], demand: DemandVector, need: EnsembleNeed): SearchPath[] {
+  const scored = paths.map((p) => ({
+    p,
+    s: scoreAssembly(computeAssembly(p.items, p.roles), demand, need),
+  }))
+  scored.sort((a, b) => b.s - a.s)
+  return scored.slice(0, MATCHING.beamWidth).map((x) => x.p)
 }
 
 /** 层 → 槽位 reasonCode（同角色多槽取第一个非空；贴身层恒在） */
@@ -68,12 +100,13 @@ function attachSlotReasons(assembly: OutfitAssembly, slots: LayerSlot[]): void {
   })
 }
 
-/** 槽位硬属性检查（拉伸到候选挑选） */
-function slotHardSatisfied(it: ClothingItem, slot: LayerSlot): boolean {
+/** 槽位硬属性检查（候选挑选与联合搜索共用同一套判据） */
+function slotHardSatisfied(it: ClothingItem, slot: LayerSlot, need: EnsembleNeed): boolean {
   if (slot.needWater && it.water < 0.9) return false
   if (slot.needWind && it.wind < 0.7) return false
   if (slot.needSolar && it.solar < 0.8) return false
   if (it.insulationClo < slot.minClo) return false
+  if (!withinComfortFit(it, slot, need)) return false
   return true
 }
 
@@ -125,21 +158,23 @@ export function computeAssembly(chosen: ClothingItem[], slotRoles?: LayerRole[])
   }
 }
 
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
+
 /**
- * 加权评分（8 项权重合计 1.0 + 惩罚）。
- * 保暖贴合以"当前场景需要多少 clo"为目标，不再用固定 1.0 clo；
- * 欠保暖比略微过暖罚得更重——穿少了会冷，穿多了只是沉。
+ * 加权评分（权重合计 1.0 + 惩罚）。
+ * 保暖贴合以"当前场景需要多少 clo"为目标；欠保暖比略微过暖罚得更重——穿少了会冷，穿多了只是沉。
+ * 另罚"上下身失衡"：设计时刻很冷却下装过薄，上面像冬天下面像夏天不叫好组合。
  */
 export function scoreAssembly(
   a: OutfitAssembly,
   demand: DemandVector,
-  need: WarmthNeed,
+  need: EnsembleNeed,
 ): number {
   const w = SCORING.weights
   const gap = need.requiredClo - a.effectiveClo
   const warmthScore = gap <= 0
-    ? 100 - Math.min(30, -gap * 25) // 过暖：轻罚
-    : 100 - gap * 45 // 欠暖：重罚
+    ? 100 - Math.min(SCORING.overWarmMaxPenalty, -gap * SCORING.overWarmPenalty) // 过暖：轻罚
+    : 100 - gap * SCORING.underWarmPenalty // 欠暖：重罚
   let score =
     warmthScore * w.warmth +
     a.wind * 100 * w.wind +
@@ -148,6 +183,19 @@ export function scoreAssembly(
     (1 - a.weightGrams / 2500) * 100 * w.weight +
     (a.removableCount / 3) * 100 * w.removable +
     a.solar * 100 * w.solar
+  // 上下装协调：按设计时刻折算下装应承担的保暖分额，缺多少扣多少
+  const bottomClo = a.layers
+    .flatMap((l) => l.items)
+    .filter((it) => it.category === 'BOTTOM')
+    .reduce((sum, it) => sum + it.insulationClo, 0)
+  const requiredLegClo = clamp(
+    (COORDINATION.legOnsetC - need.designHourTempC) * COORDINATION.legCloPerDegree,
+    0,
+    COORDINATION.legMaxClo,
+  )
+  if (bottomClo < requiredLegClo) {
+    score -= (requiredLegClo - bottomClo) * COORDINATION.legPenaltyPerClo
+  }
   // 惩罚
   if (demand.WIND > 50 && a.wind < 0.5) score -= 25
   if (demand.RAIN > 50 && a.water < 0.5) score -= 30

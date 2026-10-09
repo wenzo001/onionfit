@@ -138,6 +138,41 @@ export const LAYERING = {
   layerDiminish: 0.85,
 }
 
+/**
+ * 候选池与联合搜索（Matching）
+ */
+export const MATCHING = {
+  /** 每槽按拟合分初筛保留的候选数 */
+  poolPerSlot: 6,
+  /** 联合搜索的 beam 宽度：每槽扩展后保留的路径数 */
+  beamWidth: 32,
+  /** 每槽额外保留的最厚合格候选数：贴合排序天然偏好"差值最小"，需要把"用厚度补缺口"摆上桌 */
+  thickRescuePerSlot: 2,
+}
+
+/**
+ * 反季准入（ComfortFit）：设计时刻超出衣物舒适窗这个容忍度 → 季节不对，不进候选。
+ * 外壳槽豁免：防雨防风是安全属性，优先于季节舒适。
+ */
+export const COMFORT_FIT = {
+  coldTolC: 6,
+  warmTolC: 6,
+}
+
+/**
+ * 上下装协调（Coordination）：天冷却下装过薄 → 上面像冬天、下面像夏天，扣分
+ */
+export const COORDINATION = {
+  /** 设计时刻低于此温度开始要求下装保暖分额 */
+  legOnsetC: 12,
+  /** 每低 1℃ 要求增加的下装 clo */
+  legCloPerDegree: 0.03,
+  /** 下装分额上限（一件加绒长裤量级） */
+  legMaxClo: 0.32,
+  /** 每缺 1 clo 下装保暖扣的分数 */
+  legPenaltyPerClo: 60,
+}
+
 /** 数据质量 → 置信度：覆盖判定不能把合成曲线声称成实测精度 */
 export const DATA_QUALITY = {
   withHourly: 1,
@@ -223,6 +258,12 @@ export const SCORING = {
     removable: 0.1,
     solar: 0.05,
   },
+  /** 欠暖惩罚（每差 1 clo 扣的分数）：穿少会冷，罚得比过暖重得多 */
+  underWarmPenalty: 90,
+  /** 过暖惩罚（每多 1 clo 扣的分数） */
+  overWarmPenalty: 25,
+  /** 过暖惩罚上限（防失真） */
+  overWarmMaxPenalty: 30,
   /** 硬件等级要求（雨时防护层最低） */
   minShellForRain: 2,
   minShellForWind: 1,

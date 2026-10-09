@@ -1,16 +1,17 @@
 // ClothingMatchingEngine：为每个槽位从目录挑候选衣物（确定性排序）
-// 简化而非枚举全部组合：每槽取评分最佳的若干件，再组合成一套（≤480 的裁剪不必要）
+// 候选 = 拟合分前若干 + 最厚的合格件：贴合排序天然偏好"差值最小"，厚度取舍交给联合评分。
+// 反季件在准入层被挡掉（外壳槽豁免：防雨防风是安全属性）。
 
 import { CATALOG } from '../catalog'
-import { DEMAND, LAYERING } from '../config'
-import type { ClothingItem, DemandVector } from '../types'
-import type { LayerSlot, WarmthNeed } from './layering'
+import { COMFORT_FIT, DEMAND, LAYERING, MATCHING } from '../config'
+import type { ClothingItem, DemandVector, LayerRole } from '../types'
+import type { EnsembleNeed, LayerSlot } from './layering'
 
 /** 匹配候选：base 槽位考虑上下装搭配 */
 export function matchCandidates(
   demand: DemandVector,
   slots: LayerSlot[],
-  need: WarmthNeed & { designHourTempC: number },
+  need: EnsembleNeed,
 ): ClothingItem[][] {
   return slots.map((slot) => pickForSlot(slot, demand, need))
 }
@@ -28,13 +29,27 @@ function poolForSlot(slot: LayerSlot): ClothingItem[] {
   return pool
 }
 
+/**
+ * 反季准入：设计时刻离这件衣服的舒适窗太远 → 季节不对，不是"差一点"。
+ * 外壳槽豁免：雨/风装备在盛夏深冬都要可达。
+ */
+export function withinComfortFit(it: ClothingItem, slot: LayerSlot, need: EnsembleNeed): boolean {
+  if (slot.role === 'PROTECTION') return true
+  const [lowC, highC] = it.comfortRangeC
+  return (
+    need.designHourTempC >= lowC - COMFORT_FIT.coldTolC &&
+    need.designHourTempC <= highC + COMFORT_FIT.warmTolC
+  )
+}
+
 /** 过得了槽位硬过滤的候选（评分之前的一层准入） */
-function eligibleFor(slot: LayerSlot): ClothingItem[] {
+function eligibleFor(slot: LayerSlot, need: EnsembleNeed): ClothingItem[] {
   return poolForSlot(slot).filter((it) => {
     if (it.insulationClo < slot.minClo) return false
     if (slot.needWater && it.water < 0.85) return false
     if (slot.needWind && it.wind < 0.6) return false
     if (slot.needSolar && it.solar < 0.8) return false
+    if (!withinComfortFit(it, slot, need)) return false
     return true
   })
 }
@@ -42,30 +57,60 @@ function eligibleFor(slot: LayerSlot): ClothingItem[] {
 /**
  * 这套槽位结构下，衣物库最多能凑到多少保暖（贪心取每槽最厚的一件，不重复用件）。
  * 覆盖判定要用它区分「这套偏薄」与「库里根本没有」，两者对用户的说法完全不同。
+ * 返回与槽位配对的件和角色：空槽被跳过后角色不得错位。
  */
-export function capacityCandidates(slots: LayerSlot[]): ClothingItem[] {
+export function capacityCandidates(
+  slots: LayerSlot[],
+  need: EnsembleNeed,
+): { item: ClothingItem; role: LayerRole }[] {
   const used = new Set<string>()
-  const chosen: ClothingItem[] = []
+  const chosen: { item: ClothingItem; role: LayerRole }[] = []
   for (const slot of slots) {
-    const pool = eligibleFor(slot).filter((it) => !used.has(it.id))
+    const pool = eligibleFor(slot, need).filter((it) => !used.has(it.id))
     if (!pool.length) continue
     const best = pool.reduce((a, b) => (b.insulationClo > a.insulationClo ? b : a))
-    chosen.push(best)
+    chosen.push({ item: best, role: slot.role })
     used.add(best.id)
   }
   return chosen
 }
 
-/** 为单槽位挑选候选衣物（确定性，最多 4 件） */
+/** 设计时刻离舒适窗的距离（0 = 窗内） */
+function comfortDistance(it: ClothingItem, tempC: number): number {
+  const [lowC, highC] = it.comfortRangeC
+  if (tempC < lowC) return lowC - tempC
+  if (tempC > highC) return tempC - highC
+  return 0
+}
+
+/** 为单槽位挑选候选衣物（确定性） */
 function pickForSlot(
   slot: LayerSlot,
   demand: DemandVector,
-  need: WarmthNeed & { designHourTempC: number },
+  need: EnsembleNeed,
 ): ClothingItem[] {
-  const rated = eligibleFor(slot)
-    .map((it) => ({ it, score: fitScore(it, slot, demand, need) }))
-    .sort((a, b) => b.score - a.score)
-  return rated.slice(0, 4).map((r) => r.it)
+  const eligible = eligibleFor(slot, need)
+  // 合格池为空：退回角色 + 品类原始池做"尽力而为"，按离设计时刻最近排序，
+  // 让极寒场景兜底的是最接近的一件（发热保暖裤），而不是拟合分恰好高的短打或裙装
+  const picked = eligible.length
+    ? eligible
+        .map((it) => ({ it, score: fitScore(it, slot, demand, need) }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, MATCHING.poolPerSlot)
+        .map((r) => r.it)
+    : [...poolForSlot(slot)]
+        .sort(
+          (a, b) =>
+            comfortDistance(a, need.designHourTempC) - comfortDistance(b, need.designHourTempC) ||
+            fitScore(b, slot, demand, need) - fitScore(a, slot, demand, need),
+        )
+        .slice(0, MATCHING.poolPerSlot)
+  // 贴合排序会把厚件筛到后面；联合评分需要"用厚度补缺口"这个选项在桌上
+  const thickest = [...eligible]
+    .sort((a, b) => b.insulationClo - a.insulationClo)
+    .slice(0, MATCHING.thickRescuePerSlot)
+  for (const it of thickest) if (!picked.includes(it)) picked.push(it)
+  return picked
 }
 
 /** 拟合评分：clo 接近槽位目标最佳、重量轻、透气匹配、可脱卸加分 */
@@ -73,10 +118,10 @@ function fitScore(
   it: ClothingItem,
   slot: LayerSlot,
   demand: DemandVector,
-  need: WarmthNeed & { designHourTempC: number },
+  need: EnsembleNeed,
 ): number {
   // 保暖刻度用未封顶的缺口：0.55 clo 起有份额，到 baseTargetScaleClo 取满
-  const warmthRatio = Math.min(1, need.requiredClo / DEMAND.baseTargetScaleClo)
+  const warmthRatio = Math.min(1, Math.max(0, need.requiredClo / DEMAND.baseTargetScaleClo))
   let score = 0
   if (slot.role === 'INSULATION') {
     // 目标 = 槽位 minClo 上浮一点，接近者得分高
