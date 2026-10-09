@@ -3,17 +3,26 @@
 // 反季件在准入层被挡掉（外壳槽豁免：防雨防风是安全属性）。
 
 import { CATALOG } from '../catalog'
-import { COMFORT_FIT, DEMAND, LAYERING, MATCHING } from '../config'
+import { COMFORT_FIT, DEMAND, LAYERING, MATCHING, STYLE } from '../config'
 import type { ClothingItem, DemandVector, LayerRole } from '../types'
 import type { EnsembleNeed, LayerSlot } from './layering'
+import {
+  colorFit,
+  neutralPrefs,
+  presentationFit,
+  silhouetteFit,
+  styleHit,
+  type ResolvedPrefs,
+} from './prefs'
 
-/** 匹配候选：base 槽位考虑上下装搭配 */
+/** 匹配候选：base 槽位考虑上下装搭配；显式偏好只加软加分（默认设置不改变池序） */
 export function matchCandidates(
   demand: DemandVector,
   slots: LayerSlot[],
   need: EnsembleNeed,
+  prefs: ResolvedPrefs = neutralPrefs(),
 ): ClothingItem[][] {
-  return slots.map((slot) => pickForSlot(slot, demand, need))
+  return slots.map((slot) => pickForSlot(slot, demand, need, prefs))
 }
 
 /** 候选池：按角色 + 品类分池；严寒时厚外套也可作为保暖候选 */
@@ -88,13 +97,14 @@ function pickForSlot(
   slot: LayerSlot,
   demand: DemandVector,
   need: EnsembleNeed,
+  prefs: ResolvedPrefs,
 ): ClothingItem[] {
   const eligible = eligibleFor(slot, need)
   // 合格池为空：退回角色 + 品类原始池做"尽力而为"，按离设计时刻最近排序，
   // 让极寒场景兜底的是最接近的一件（发热保暖裤），而不是拟合分恰好高的短打或裙装
   const picked = eligible.length
     ? eligible
-        .map((it) => ({ it, score: fitScore(it, slot, demand, need) }))
+        .map((it) => ({ it, score: fitScore(it, slot, demand, need, prefs) }))
         .sort((a, b) => b.score - a.score)
         .slice(0, MATCHING.poolPerSlot)
         .map((r) => r.it)
@@ -102,7 +112,7 @@ function pickForSlot(
         .sort(
           (a, b) =>
             comfortDistance(a, need.designHourTempC) - comfortDistance(b, need.designHourTempC) ||
-            fitScore(b, slot, demand, need) - fitScore(a, slot, demand, need),
+            fitScore(b, slot, demand, need, prefs) - fitScore(a, slot, demand, need, prefs),
         )
         .slice(0, MATCHING.poolPerSlot)
   // 贴合排序会把厚件筛到后面；联合评分需要"用厚度补缺口"这个选项在桌上
@@ -113,12 +123,29 @@ function pickForSlot(
   return picked
 }
 
+/** 显式偏好的池内软加分：让风格/呈现/廓形/色彩的合适件进得了前 poolPerSlot 池 */
+function poolBonus(it: ClothingItem, prefs: ResolvedPrefs): number {
+  let bonus = 0
+  if (prefs.styles.length && styleHit(it, prefs.styles)) bonus += STYLE.poolBonus.style
+  if (prefs.presentation !== 'UNSPECIFIED' && presentationFit(it, prefs.presentation) === 1) {
+    bonus += STYLE.poolBonus.presentation
+  }
+  if (prefs.silhouette !== 'REGULAR' && silhouetteFit(it, prefs.silhouette) === 1) {
+    bonus += STYLE.poolBonus.silhouette
+  }
+  if (prefs.colorPreference !== 'ANY' && colorFit(it, prefs.colorPreference) === 1) {
+    bonus += STYLE.poolBonus.color
+  }
+  return bonus
+}
+
 /** 拟合评分：clo 接近槽位目标最佳、重量轻、透气匹配、可脱卸加分 */
 function fitScore(
   it: ClothingItem,
   slot: LayerSlot,
   demand: DemandVector,
   need: EnsembleNeed,
+  prefs: ResolvedPrefs,
 ): number {
   // 保暖刻度用未封顶的缺口：0.55 clo 起有份额，到 baseTargetScaleClo 取满
   const warmthRatio = Math.min(1, Math.max(0, need.requiredClo / DEMAND.baseTargetScaleClo))
@@ -150,5 +177,6 @@ function fitScore(
   // 舒适温度窗要盖得住设计时刻，否则这件在该时段本来就不该穿
   const [lowC, highC] = it.comfortRangeC
   if (lowC <= need.designHourTempC + 2 && highC >= need.designHourTempC - 2) score += 5
+  score += poolBonus(it, prefs)
   return Math.round(score * 10) / 10
 }

@@ -1,17 +1,35 @@
 // OutfitScoringEngine：从候选组装一套完整穿搭并评分（确定性）
 // 组装 = 在所有槽位组合上做 beam 搜索取整卷最高分；逐槽都没有合格件时登记"被放宽"，不静默冒充合格推荐。
+// 评分按方案 §7.3 的分项满分制（合计 97；多样性 3 分与滞回一起排第五步）。
+// 默认偏好下风格/偏好分项取中性常数，不产生排序信号（与既有行为向后兼容）。
 
-import { COORDINATION, LAYERING, MATCHING, SCORING } from '../config'
-import type { ClothingItem, DemandVector, LayerRole, OutfitAssembly } from '../types'
+import { COORDINATION, LAYERING, MATCHING, SCORING, STYLE } from '../config'
+import type { ClothingItem, DemandVector, LayerRole, OutfitAssembly, ScoreBucket } from '../types'
 import type { EnsembleNeed, LayerSlot } from './layering'
 import { withinComfortFit } from './matching'
+import {
+  colorFit,
+  formalityFit,
+  neutralPrefs,
+  presentationFit,
+  silhouetteFit,
+  styleHit,
+  type ResolvedPrefs,
+} from './prefs'
 
 export interface AssembledOutfit {
   assembly: OutfitAssembly
   chosen: ClothingItem[]
   score: number
+  /** dayScore 的分项构成（方案 §7.3，UI 分数卡消费） */
+  breakdown: ScoreBucket[]
   /** 被放宽的硬约束 code（合格推荐不应出现） */
   relaxedCodes: string[]
+}
+
+export interface ScoreDetail {
+  total: number
+  buckets: ScoreBucket[]
 }
 
 /** 搜索路径：逐槽累积的件、角色、已用件与被放宽的约束 */
@@ -31,6 +49,7 @@ export function assembleOutfit(
   candidates: ClothingItem[][],
   demand: DemandVector,
   need: EnsembleNeed,
+  prefs: ResolvedPrefs = neutralPrefs(),
 ): AssembledOutfit {
   let paths: SearchPath[] = [{ items: [], roles: [], used: new Set(), relaxed: [] }]
 
@@ -53,17 +72,19 @@ export function assembleOutfit(
         })
       }
     }
-    paths = pruneToBest(next, demand, need)
+    paths = pruneToBest(next, demand, need, prefs)
   })
 
   const best = paths[0]
   const assembly = computeAssembly(best.items, best.roles)
   // 槽位产生原因透传到层：界面「这层为什么存在」读的是真实决策依据，不是猜测
   attachSlotReasons(assembly, slots)
+  const detail = scoreDetail(assembly, demand, need, prefs)
   return {
     assembly,
     chosen: best.items,
-    score: scoreAssembly(assembly, demand, need),
+    score: detail.total,
+    breakdown: detail.buckets,
     relaxedCodes: best.relaxed,
   }
 }
@@ -78,10 +99,15 @@ function extend(p: SearchPath, it: ClothingItem, role: LayerRole, relaxed: strin
 }
 
 /** beam 剪枝：按"目前为止整卷得分"保留前 beamWidth 支（稳定排序，保证确定性） */
-function pruneToBest(paths: SearchPath[], demand: DemandVector, need: EnsembleNeed): SearchPath[] {
+function pruneToBest(
+  paths: SearchPath[],
+  demand: DemandVector,
+  need: EnsembleNeed,
+  prefs: ResolvedPrefs,
+): SearchPath[] {
   const scored = paths.map((p) => ({
     p,
-    s: scoreAssembly(computeAssembly(p.items, p.roles), demand, need),
+    s: scoreAssembly(computeAssembly(p.items, p.roles), demand, need, prefs),
   }))
   scored.sort((a, b) => b.s - a.s)
   return scored.slice(0, MATCHING.beamWidth).map((x) => x.p)
@@ -159,33 +185,104 @@ export function computeAssembly(chosen: ClothingItem[], slotRoles?: LayerRole[])
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
+const round1 = (v: number) => Math.round(v * 10) / 10
 
 /**
- * 加权评分（权重合计 1.0 + 惩罚）。
- * 保暖贴合以"当前场景需要多少 clo"为目标；欠保暖比略微过暖罚得更重——穿少了会冷，穿多了只是沉。
- * 另罚"上下身失衡"：设计时刻很冷却下装过薄，上面像冬天下面像夏天不叫好组合。
+ * 分项评分（方案 §7.3）：热舒适 25 / 天气防护 20 / 活动舒适 15 / 风格场合 18 /
+ * 整套协调 10 / 可脱卸 5 / 用户偏好 4。硬过滤与安全判定不读分数，分数只决定"合格候选里谁排前面"。
  */
+export function scoreDetail(
+  a: OutfitAssembly,
+  demand: DemandVector,
+  need: EnsembleNeed,
+  prefs: ResolvedPrefs = neutralPrefs(),
+): ScoreDetail {
+  const items = a.layers.flatMap((l) => l.items)
+  const raw: ScoreBucket[] = [
+    { key: 'warmth', score: warmthBucket(a, need), max: SCORING.buckets.warmth },
+    { key: 'protection', score: protectionBucket(a, demand), max: SCORING.buckets.protection },
+    { key: 'activity', score: activityBucket(a, demand, prefs), max: SCORING.buckets.activity },
+    { key: 'style', score: styleBucket(items, prefs), max: SCORING.buckets.style },
+    { key: 'coordination', score: coordinationBucket(a, need), max: SCORING.buckets.coordination },
+    { key: 'removable', score: removableBucket(a), max: SCORING.buckets.removable },
+    { key: 'preference', score: preferenceBucket(items, prefs), max: SCORING.buckets.preference },
+  ]
+  const buckets = raw.map((b) => ({ ...b, score: round1(b.score) }))
+  const total = clamp(round1(buckets.reduce((s, b) => s + b.score, 0)), 0, 100)
+  return { total, buckets }
+}
+
+/** 整卷总分（dayScore）：分项之和，0-100。 */
 export function scoreAssembly(
   a: OutfitAssembly,
   demand: DemandVector,
   need: EnsembleNeed,
+  prefs: ResolvedPrefs = neutralPrefs(),
 ): number {
-  const w = SCORING.weights
+  return scoreDetail(a, demand, need, prefs).total
+}
+
+/** 热舒适：与当前场景所需 clo 的差距；欠保暖比略微过暖罚得更重 */
+function warmthBucket(a: OutfitAssembly, need: EnsembleNeed): number {
+  const max = SCORING.buckets.warmth
   const gap = need.requiredClo - a.effectiveClo
-  const warmthScore = gap <= 0
-    ? 100 - Math.min(SCORING.overWarmMaxPenalty, -gap * SCORING.overWarmPenalty) // 过暖：轻罚
-    : 100 - gap * SCORING.underWarmPenalty // 欠暖：重罚
-  let score =
-    warmthScore * w.warmth +
-    a.wind * 100 * w.wind +
-    a.water * 100 * w.water +
-    a.breathability * 100 * w.breathability +
-    (1 - a.weightGrams / 2500) * 100 * w.weight +
-    (a.removableCount / 3) * 100 * w.removable +
-    a.solar * 100 * w.solar
-  // 上下装协调：按设计时刻折算下装应承担的保暖分额，缺多少扣多少
-  const bottomClo = a.layers
-    .flatMap((l) => l.items)
+  const penalty =
+    gap <= 0
+      ? Math.min(SCORING.overWarmMaxPenalty, -gap * SCORING.overWarmPenaltyPerClo)
+      : gap * SCORING.underWarmPenaltyPerClo
+  return clamp(max - penalty, 0, max)
+}
+
+/** 天气防护：风/雨/晒各自的属性按需求加权（+0.15 基准，零需求也不把属性一票否决） */
+function protectionBucket(a: OutfitAssembly, demand: DemandVector): number {
+  const max = SCORING.buckets.protection
+  const wWind = demand.WIND / 100 + 0.15
+  const wRain = demand.RAIN / 100 + 0.15
+  const wSolar = demand.SOLAR / 100 + 0.15
+  const wsum = wWind + wRain + wSolar
+  const value = (a.wind * wWind + a.water * wRain + a.solar * wSolar) / wsum
+  return clamp(value * max, 0, max)
+}
+
+/** 活动舒适：透气（权重随需求与「闷」反馈抬升）+ 轻量 */
+function activityBucket(a: OutfitAssembly, demand: DemandVector, prefs: ResolvedPrefs): number {
+  const max = SCORING.buckets.activity
+  const breathWeight = clamp(0.4 + 0.6 * (demand.BREATHABILITY / 100 + prefs.breathBias), 0, 1)
+  const breathAdapt = clamp(a.breathability * breathWeight, 0, 1)
+  const weightScore = clamp(1 - a.weightGrams / SCORING.weightBudgetGrams, 0, 1)
+  return clamp((breathAdapt * 0.7 + weightScore * 0.3) * max, 0, max)
+}
+
+/**
+ * 风格与场合：只统计用户显式设置的子信号（风格多选 / 非默认场合），
+ * 未设置时不产生排序信号；「不符合场合」反馈把权重推向正式度。
+ */
+function styleBucket(items: ClothingItem[], prefs: ResolvedPrefs): number {
+  const max = SCORING.buckets.style
+  const parts: { v: number; w: number }[] = []
+  if (prefs.styles.length) {
+    parts.push({
+      v: avg(items, (it) => (styleHit(it, prefs.styles) ? 1 : STYLE.unmatchedCredit)),
+      w: STYLE.styleWeight,
+    })
+  }
+  if (prefs.occasion !== 'DAILY') {
+    parts.push({
+      v: avg(items, (it) => formalityFit(it, prefs.occasion)),
+      w: STYLE.formalityWeight + prefs.occasionBias,
+    })
+  }
+  if (!parts.length) return max * STYLE.neutralCredit
+  const wsum = parts.reduce((s, p) => s + p.w, 0)
+  const mixed = parts.reduce((s, p) => s + p.v * p.w, 0) / wsum
+  return clamp(mixed * max, 0, max)
+}
+
+/** 整套协调：上下装保暖平衡（冷天不允许上身冬天下身夏天）+ 配色分散轻罚 */
+function coordinationBucket(a: OutfitAssembly, need: EnsembleNeed): number {
+  const max = SCORING.buckets.coordination
+  const items = a.layers.flatMap((l) => l.items)
+  const bottomClo = items
     .filter((it) => it.category === 'BOTTOM')
     .reduce((sum, it) => sum + it.insulationClo, 0)
   const requiredLegClo = clamp(
@@ -193,12 +290,44 @@ export function scoreAssembly(
     0,
     COORDINATION.legMaxClo,
   )
-  if (bottomClo < requiredLegClo) {
-    score -= (requiredLegClo - bottomClo) * COORDINATION.legPenaltyPerClo
-  }
-  // 惩罚
-  if (demand.WIND > 50 && a.wind < 0.5) score -= 25
-  if (demand.RAIN > 50 && a.water < 0.5) score -= 30
-  if (demand.REMOVABLE > 60 && a.removableCount === 0) score -= 10
-  return Math.round(Math.max(0, Math.min(100, score)) * 10) / 10
+  let score = max
+  if (bottomClo < requiredLegClo) score -= (requiredLegClo - bottomClo) * SCORING.legPenaltyPerClo
+  if (colorGroupCount(items) >= SCORING.colorClashGroups) score -= SCORING.colorClashPenalty
+  return clamp(score, 0, max)
 }
+
+/** 整套里出现的非中性色组数（达到阈值 → 配色分散，轻扣分） */
+function colorGroupCount(items: ClothingItem[]): number {
+  const groups = new Set<string>()
+  for (const it of items) for (const g of it.colors ?? []) if (g !== 'NEUTRAL') groups.add(g)
+  return groups.size
+}
+
+/** 可脱卸：温差场景需要的可脱件数（removableFullCount 件取满） */
+function removableBucket(a: OutfitAssembly): number {
+  const max = SCORING.buckets.removable
+  return clamp(Math.min(1, a.removableCount / SCORING.removableFullCount) * max, 0, max)
+}
+
+/** 用户偏好：配色 / 廓形 / 呈现（只统计显式设置的子项；未设置时不产生排序信号） */
+function preferenceBucket(items: ClothingItem[], prefs: ResolvedPrefs): number {
+  const max = SCORING.buckets.preference
+  const w = STYLE.preferenceWeights
+  const parts: { v: number; w: number }[] = []
+  if (prefs.colorPreference !== 'ANY') {
+    parts.push({ v: avg(items, (it) => colorFit(it, prefs.colorPreference)), w: w.color })
+  }
+  if (prefs.silhouette !== 'REGULAR') {
+    parts.push({ v: avg(items, (it) => silhouetteFit(it, prefs.silhouette)), w: w.silhouette })
+  }
+  if (prefs.presentation !== 'UNSPECIFIED') {
+    parts.push({ v: avg(items, (it) => presentationFit(it, prefs.presentation)), w: w.presentation })
+  }
+  if (!parts.length) return max * STYLE.neutralCredit
+  const wsum = parts.reduce((s, p) => s + p.w, 0)
+  const mixed = parts.reduce((s, p) => s + p.v * p.w, 0) / wsum
+  return clamp(mixed * max, 0, max)
+}
+
+const avg = (items: ClothingItem[], f: (it: ClothingItem) => number): number =>
+  items.length ? items.reduce((s, it) => s + f(it), 0) / items.length : STYLE.neutralCredit

@@ -4,11 +4,13 @@
 import type { Accessory, AccessoryKind, DemandVector } from '../types'
 import type { WeatherContext } from './weather'
 import type { PersonProfile } from './person'
+import { neutralPrefs, type ResolvedPrefs } from './prefs'
 
 export function accessoriesOf(
   ctx: WeatherContext,
   demand: DemandVector,
   person: PersonProfile,
+  prefs: ResolvedPrefs = neutralPrefs(),
 ): Accessory[] {
   const list: Accessory[] = []
   const push = (kind: AccessoryKind, label: string, reason?: string) =>
@@ -30,9 +32,11 @@ export function accessoriesOf(
   if (demand.SOLAR > 55) {
     push('SUNSCREEN', '防晒霜', 'sun-high')
   }
-  // 备用 T 恤（闷热出汗）
+  // 备用 T 恤（闷热出汗；易出汗体质在较低透气压下也会需要）
   if (demand.BREATHABILITY > 55) {
     push('SPARE_TEE', '备用贴身衣', 'sweat')
+  } else if (prefs.sweat === 'EASY' && demand.BREATHABILITY > 30) {
+    push('SPARE_TEE', '备用贴身衣', 'sweat-easy')
   }
   // 暖手宝（严寒）
   if (ctx.dayMinC <= -5) {

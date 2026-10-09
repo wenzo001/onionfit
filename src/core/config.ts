@@ -169,8 +169,6 @@ export const COORDINATION = {
   legCloPerDegree: 0.03,
   /** 下装分额上限（一件加绒长裤量级） */
   legMaxClo: 0.32,
-  /** 每缺 1 clo 下装保暖扣的分数 */
-  legPenaltyPerClo: 60,
 }
 
 /** 数据质量 → 置信度：覆盖判定不能把合成曲线声称成实测精度 */
@@ -254,22 +252,88 @@ export const UMBRELLA = {
 }
 
 /**
- * 评分权重（合计 1.0）
+ * 评分（第四步重排为方案 §7.3 的分项满分制；起始值待第五步场景回归校准）
+ * 硬过滤与安全判定不读这里——分项只决定"合格候选里谁排前面"。
  */
 export const SCORING = {
-  weights: {
-    warmth: 0.3,
-    wind: 0.15,
-    water: 0.15,
-    breathability: 0.15,
-    weight: 0.1,
-    removable: 0.1,
-    solar: 0.05,
+  /** 各分项满分，合计 97；多样性 3 分与滞回/复用一起排第五步 */
+  buckets: {
+    warmth: 25,
+    protection: 20,
+    activity: 15,
+    style: 18,
+    coordination: 10,
+    removable: 5,
+    preference: 4,
   },
   /** 欠暖惩罚（每差 1 clo 扣的分数）：穿少会冷，罚得比过暖重得多 */
-  underWarmPenalty: 90,
+  underWarmPenaltyPerClo: 22.5,
   /** 过暖惩罚（每多 1 clo 扣的分数） */
-  overWarmPenalty: 25,
+  overWarmPenaltyPerClo: 6.25,
   /** 过暖惩罚上限（防失真） */
-  overWarmMaxPenalty: 30,
+  overWarmMaxPenalty: 7.5,
+  /** 上下装失衡：每缺 1 clo 下装保暖扣的分数 */
+  legPenaltyPerClo: 6,
+  /** 整套出现这个数以上的互斥色组（非中性）→ 配色扣分 */
+  colorClashGroups: 3,
+  colorClashPenalty: 2,
+  /** 重量预算：超过这个克数轻量得分归零（线性） */
+  weightBudgetGrams: 2500,
+  /** 可脱卸得分取满所需的可脱件数（温差大时 2 件够用） */
+  removableFullCount: 2,
+}
+
+/**
+ * 风格与偏好（第四步，方案 §6 / §7.3）：全部只做软排序与解释，不碰硬过滤与安全。
+ */
+export const STYLE = {
+  /** 各场合的正式度目标 0-1（item.formality 缺省按 defaultItemFormality） */
+  occasionFormality: {
+    DAILY: 0.35,
+    OFFICE: 0.6,
+    SCHOOL: 0.3,
+    SPORT: 0.2,
+    OUTDOOR_WORK: 0.2,
+    FORMAL: 0.85,
+  } as Record<string, number>,
+  /** 目录件缺 formality 时的中性日常档 */
+  defaultItemFormality: 0.35,
+  /** 风格/偏好两桶在"未设置任何相关偏好"时的中性得分比例（不产生排序信号） */
+  neutralCredit: 0.8,
+  /** 正式度偏离容差：偏离 1/该值 得 0 分（0.5 = 偏离 50% 归零） */
+  formalityToleranceScale: 2,
+  /** 有风格选择时：风格命中 ↔ 正式度的权重（场合反馈会把权重推向正式度） */
+  styleWeight: 0.55,
+  formalityWeight: 0.45,
+  /** 偏好分桶内三个子信号的权重（只统计用户显式设置的子项，未设置的不参与） */
+  preferenceWeights: { color: 0.4, silhouette: 0.3, presentation: 0.3 },
+  /** 搜索候选池的软加分上限（fitScore 用；太小则风格相关件进不了前 6 池） */
+  poolBonus: { style: 6, presentation: 4, silhouette: 3, color: 3 },
+  /** 标签缺失时的命中回退分（0-1；有标签但不匹配的件得分更低时才有区分度） */
+  unmatchedCredit: 0.4,
+}
+
+/** 暴露习惯 → 防雨需求的行前权重（长时户外放大窗口雨信号，室内压缩但不归零） */
+export const EXPOSURE_HABIT: Record<'MAINLY_INDOOR' | 'SHORT_OUTDOOR' | 'LONG_OUTDOOR', number> = {
+  MAINLY_INDOOR: 0.6,
+  SHORT_OUTDOOR: 1,
+  LONG_OUTDOOR: 1.2,
+}
+
+/**
+ * 反馈闭环（方案 §6.1 / 交付包屏 15）：单步很小、有上下限、可撤销；
+ * 只调个人舒适目标与排序权重，不改安全阈值、不改天气事实。
+ */
+export const FEEDBACK = {
+  /** 「偏冷 / 偏热」每步调整的保暖目标 clo */
+  warmthStepClo: 0.1,
+  warmthMaxClo: 0.3,
+  /** 「闷」每步提高的透气目标 0-1 */
+  breathStep: 0.1,
+  breathMax: 0.3,
+  /** 「不符合场合」每步加大的正式度权重 */
+  occasionStep: 0.1,
+  occasionMax: 0.3,
+  /** 反馈历史保留条数上限（防止无限增长） */
+  maxHistory: 30,
 }

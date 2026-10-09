@@ -28,6 +28,7 @@ import { buildDayParts, buildTimeline } from './schedule'
 import { accessoriesOf } from './accessories'
 import { assessUmbrella } from './umbrella'
 import { planExposure, summarizeExposure, type ExposureFacts } from './exposure'
+import { resolvePrefs, rainExposureFactor } from './prefs'
 import { round1 } from './psychrometrics'
 import { COVERAGE, DATA_QUALITY, DEMAND, SAFETY, THERMAL } from '../config'
 
@@ -46,6 +47,7 @@ export function plan({ report, settings, now = new Date() }: PlanInput): OutfitR
   const nowHour = now.getHours()
   const person = resolvePerson(settings)
   const activity = resolveActivity(settings.activity)
+  const prefs = resolvePrefs(settings)
   const solar = buildSolarContext(ctx, nowHour)
   const { hourly: hourlyThermal, designHour } = buildHourlyThermal(
     ctx,
@@ -59,13 +61,31 @@ export function plan({ report, settings, now = new Date() }: PlanInput): OutfitR
   // 暴露窗口先算：穿衣防雨需求与带伞结论必须引用同一组通勤事实
   const legPlan = planExposure(settings, settings.activity, now)
   const exposure = summarizeExposure(ctx, legPlan)
-  const demand = buildDemandVector(ctx, person, activity, hourlyThermal, solar, safety, exposure)
+  const demand = buildDemandVector(
+    ctx,
+    person,
+    activity,
+    hourlyThermal,
+    solar,
+    safety,
+    exposure,
+    rainExposureFactor(prefs),
+  )
 
   // 层结构与匹配：用未封顶的保暖缺口，不用会饱和的展示维
-  const need = { requiredClo: demand.requiredClo, designHourTempC: designHour.temperatureC }
+  // 反馈派生的保暖偏置只调个人舒适目标（clamp ≥ 0），不碰 safety.forcedDemands
+  const need = {
+    requiredClo: Math.max(0, Math.round((demand.requiredClo + prefs.warmthBiasClo) * 100) / 100),
+    designHourTempC: designHour.temperatureC,
+  }
   const slots = planLayerSlots(demand.vector, need)
-  const candidates = matchCandidates(demand.vector, slots, need)
-  const { assembly: dayOutfit, score, relaxedCodes } = assembleOutfit(slots, candidates, demand.vector, need)
+  const candidates = matchCandidates(demand.vector, slots, need, prefs)
+  const {
+    assembly: dayOutfit,
+    score,
+    breakdown,
+    relaxedCodes,
+  } = assembleOutfit(slots, candidates, demand.vector, need, prefs)
 
   // 此刻穿着：按当前热状态决定哪些层 active
   const nowThermal = hourlyThermal.find((t) => t.hour === nowHour) ?? hourlyThermal[0]
@@ -74,7 +94,7 @@ export function plan({ report, settings, now = new Date() }: PlanInput): OutfitR
   const periods = buildDayParts(ctx, hourlyThermal, settings.outTime, settings.homeTime)
   const timeline = buildTimeline(ctx, hourlyThermal, dayOutfit)
   // 明日一句话由 presentation 按 daily[1] 与今日事实对比生成（引擎不再拼文案）
-  const accessories = accessoriesOf(ctx, demand.vector, person)
+  const accessories = accessoriesOf(ctx, demand.vector, person, prefs)
   const umbrella = assessUmbrella({
     ctx,
     nextDayRainChance: report.daily[1].rainChancePercent,
@@ -127,7 +147,7 @@ export function plan({ report, settings, now = new Date() }: PlanInput): OutfitR
     umbrella,
     rainPlan: buildRainPlan(exposure, ctx, umbrella),
     coverage: buildCoverage(
-      demand.requiredClo,
+      need.requiredClo,
       dayOutfit.effectiveClo,
       capacityFor(slots, need),
       ctx.hasHourly,
@@ -137,6 +157,7 @@ export function plan({ report, settings, now = new Date() }: PlanInput): OutfitR
     safety,
     geo,
     dayScore: score,
+    scoreBreakdown: breakdown,
     reasons: flattenReasons(demand.reasons),
   }
 }

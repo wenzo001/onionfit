@@ -74,6 +74,50 @@ export interface WeatherReport {
 export type BodyProfile = 'CHILD' | 'ADULT' | 'ELDERLY'
 export type HeatSensitivity = 'COLD_SENSITIVE' | 'NORMAL' | 'HEAT_SENSITIVE'
 
+/** 风格（第四步，可多选；空 = 无偏好，不参与排序） */
+export type StyleTag =
+  | 'DAILY'
+  | 'COMMUTE'
+  | 'BUSINESS'
+  | 'SPORT'
+  | 'OUTDOOR'
+  | 'STREET'
+  | 'JAPANESE_LOOSE'
+  | 'KOREAN_CLEAN'
+
+/** 穿搭呈现：只影响款式与配色候选，不改变天气事实与安全判定 */
+export type Presentation = 'MASCULINE' | 'FEMININE' | 'NEUTRAL' | 'UNSPECIFIED'
+
+/** 版型偏好 */
+export type Silhouette = 'FITTED' | 'REGULAR' | 'LOOSE'
+
+/** 色彩偏好 */
+export type ColorPreference = 'NEUTRAL' | 'COOL' | 'WARM' | 'BRIGHT' | 'ANY'
+
+/** 场合：约束正式程度与功能需求 */
+export type Occasion = 'DAILY' | 'OFFICE' | 'SCHOOL' | 'SPORT' | 'OUTDOOR_WORK' | 'FORMAL'
+
+/** 暴露习惯：决定暴露时长与风雨防护的权重 */
+export type ExposureHabit = 'MAINLY_INDOOR' | 'SHORT_OUTDOOR' | 'LONG_OUTDOOR'
+
+/** 易出汗：提高排湿 / 速干 / 备用贴身层偏好，不抵消防寒 */
+export type SweatLevel = 'NO' | 'AVERAGE' | 'EASY'
+
+/** 目录侧的呈现标签（unisex = 人人可穿的中性款） */
+export type PresentationStyle = 'MASCULINE' | 'FEMININE' | 'UNISEX'
+
+/** 色彩分组：目录标签与用户偏好共用同一组 */
+export type ColorGroup = 'NEUTRAL' | 'COOL' | 'WARM' | 'BRIGHT'
+
+/** 反馈闭环（方案 §6.1）：只小步调整、设上下限、可撤销；单次反馈不改安全阈值与天气事实 */
+export type FeedbackKind = 'COLD' | 'HOT' | 'STUFFY' | 'OFF_OCCASION' | 'JUST_RIGHT'
+
+export interface FeedbackEntry {
+  kind: FeedbackKind
+  /** ISO 记录时刻（追加式历史，撤销即删除对应条目） */
+  at: string
+}
+
 /** 活动强度（requirements 9 类） */
 export type ActivityKind =
   | 'HOME'
@@ -86,7 +130,7 @@ export type ActivityKind =
   | 'OUTDOOR_LEISURE'
   | 'DRIVING'
 
-/** 用户设置 */
+/** 用户设置：既有四维之外全部可选，缺省值中性（不改也能拿到结论） */
 export interface UserSettings {
   profile: BodyProfile
   sensitivity: HeatSensitivity
@@ -95,6 +139,16 @@ export interface UserSettings {
   outTime: string | null
   /** HH:mm */
   homeTime: string | null
+  /** 风格（可多选；空数组 = 无偏好） */
+  styles?: StyleTag[]
+  presentation?: Presentation
+  silhouette?: Silhouette
+  colorPreference?: ColorPreference
+  occasion?: Occasion
+  exposureHabit?: ExposureHabit
+  sweat?: SweatLevel
+  /** 反馈历史（追加式；派生偏好有上下限、可撤销） */
+  feedbackHistory?: FeedbackEntry[]
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -103,6 +157,14 @@ export const DEFAULT_SETTINGS: UserSettings = {
   activity: 'WALKING',
   outTime: null,
   homeTime: null,
+  styles: [],
+  presentation: 'UNSPECIFIED',
+  silhouette: 'REGULAR',
+  colorPreference: 'ANY',
+  occasion: 'DAILY',
+  exposureHabit: 'SHORT_OUTDOOR',
+  sweat: 'AVERAGE',
+  feedbackHistory: [],
 }
 
 // ===== 城市与应用快照 =====
@@ -152,6 +214,17 @@ export interface ClothingItem {
   comfortRangeC: [number, number]
   /** 硬壳等级 0-3（3 = 可防暴雨大风） */
   shellGrade?: number
+  // ---- 第四步软排序标签（全部为 curated 估算；缺失按中性回退，不参与硬过滤） ----
+  /** 风格标签 */
+  styles?: StyleTag[]
+  /** 正式程度 0-1 */
+  formality?: number
+  /** 呈现标签 */
+  presentation?: PresentationStyle[]
+  /** 廓形 */
+  silhouettes?: Silhouette[]
+  /** 色彩分组 */
+  colors?: ColorGroup[]
 }
 
 /** 需要向量的六维 */
@@ -346,6 +419,13 @@ export interface GeoClimateContext {
   missingInputs: string[]
 }
 
+/** 推荐分分项（方案 §7.3；多样性 3 分留待第五步的稳定性一起落地） */
+export interface ScoreBucket {
+  key: 'warmth' | 'protection' | 'activity' | 'style' | 'coordination' | 'removable' | 'preference'
+  score: number
+  max: number
+}
+
 /** 推荐结论（planner 唯一输出，UI 消费） */
 export interface OutfitRecommendation {
   current: {
@@ -393,5 +473,7 @@ export interface OutfitRecommendation {
   /** 地理与气候上下文（方案 §4，第三步） */
   geo: GeoClimateContext
   dayScore: number
+  /** dayScore 的分项构成（第四步，方案 §7.3） */
+  scoreBreakdown: ScoreBucket[]
   reasons: ReasonCode[]
 }

@@ -35,6 +35,8 @@ export function buildDemandVector(
   solar: SolarContext,
   safety: SafetyReport,
   exposure: ExposureFacts,
+  /** 暴露习惯系数（1 = 短时户外基准；求不放大「窗口有雨」的下限——下限是窗口事实，不是习惯） */
+  rainFactor = 1,
 ): DemandResult {
   const reasons: DemandReasons = {}
 
@@ -58,7 +60,7 @@ export function buildDemandVector(
   const rainMm = ctx.dayRainMm
   const rainByChance = normalize(Math.max(rainChance, 0), DEMAND.rainChanceOnset, DEMAND.rainChanceFull)
   const rainByMm = normalize(Math.max(rainMm, 0), DEMAND.rainMmOnset, DEMAND.rainMmFull)
-  const weighted = Math.max(rainByChance, rainByMm) * activity.rainExposure
+  const weighted = Math.max(rainByChance, rainByMm) * Math.min(1, activity.rainExposure * rainFactor)
   // 「室内」只降低暴露权重：通勤窗口里确实有雨时，防雨需求不归零，否则与带伞结论互相打脸
   const windowChance = exposure.hourly ? exposure.maxChance : Math.max(rainChance, 0)
   const floor = windowChance >= DEMAND.commuteRainFloorChance ? DEMAND.commuteRainFloor : 0
