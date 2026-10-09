@@ -226,6 +226,94 @@ export const UMBRELLA_OUTCOMES: { key: UmbrellaVerdict; label: string; note: str
   { key: 'SKIP', label: '今天不用带', note: '只报概率，不报「不下雨」' },
 ]
 
+// ===== 雨具两件事（deck 16）：穿与带分开给结论，共用同一组事实 =====
+
+/** 要穿一侧点名的件：防护层里 water 最高的那件（按实际推荐件渲染，不写死「雨衣」） */
+function rainGearPiece(outfit: OutfitAssembly): { id: string; name: string } | null {
+  const items = outfit.layers.filter((l) => l.role === 'PROTECTION').flatMap((l) => l.items)
+  if (!items.length) return null
+  const best = items.reduce((a, b) => (b.water > a.water ? b : a))
+  return { id: best.id, name: best.name }
+}
+
+const NO_HOURLY_RAIN = '无逐时 · 按全天雨量估'
+
+export interface RainWearLine {
+  /** 实际推荐件；「不用特意穿」时为 null */
+  piece: { id: string; name: string } | null
+  headline: string
+  detail: string
+}
+
+/** 要穿一侧：只有这条线亮起时才会出现「伞会翻 / 伞挡不住」这类否决话术 */
+export function rainWearLine(rec: OutfitRecommendation): RainWearLine {
+  const { rainPlan, umbrella, dayOutfit } = rec
+  const noHourly = rainPlan.reasons.includes('no-hourly-exposure-data')
+  const chance = Math.round(rainPlan.facts.commuteMaxLegChance)
+  if (!rainPlan.wearShell) {
+    return {
+      piece: null,
+      headline: '不用特意穿',
+      detail: noHourly ? NO_HOURLY_RAIN : `通勤窗口 ${chance}% 有雨，外壳不用加`,
+    }
+  }
+  const piece = rainGearPiece(dayOutfit)
+  const headline = piece?.name ?? '防水外层'
+  if (noHourly) return { piece, headline, detail: NO_HOURLY_RAIN }
+  if (umbrella.verdict === 'RAINCOAT') {
+    const veto = umbrella.reasons.includes('wind-rain')
+      ? `风 ${umbrella.windMs} m/s —— 伞会翻`
+      : `雨强 ${umbrella.rainMmPerHour} mm/h —— 伞挡不住`
+    return { piece, headline, detail: `通勤窗口 ${chance}% 有雨，${veto}` }
+  }
+  return { piece, headline, detail: `通勤窗口 ${chance}% 有雨，外层挡一下` }
+}
+
+export interface RainFactChip {
+  key: 'chance' | 'intensity' | 'commute' | 'exposure'
+  label: string
+  value: string
+}
+
+const round1s = (v: number) => String(Math.round(v * 10) / 10)
+
+/** 四格共用事实：两边的理由句都从这里取数 */
+export function rainFacts(
+  rec: OutfitRecommendation,
+  commute?: { out: string | null; home: string | null },
+): RainFactChip[] {
+  const { rainPlan, umbrella } = rec
+  const f = rainPlan.facts
+  const noHourly = rainPlan.reasons.includes('no-hourly-exposure-data')
+  // 出门/回程时段：设置优先；设置没了就取引擎真正测的那段；
+  // 段已过（如兜底 07:30 在 8 点后）时回落到同一份 UMBRELLA 兜底常量，与带伞卡「按 07:30/18:00 估」同源
+  const out =
+    commute?.out ??
+    umbrella.legs.find((l) => l.phase === 'OUT')?.start ??
+    fmtMinutes(UMBRELLA.fallbackOutMinutes)
+  const home =
+    commute?.home ??
+    umbrella.legs.find((l) => l.phase === 'HOME')?.start ??
+    fmtMinutes(UMBRELLA.fallbackHomeMinutes)
+  const minutes = Math.max(0, ...umbrella.legs.map((l) => l.minutes))
+  return [
+    {
+      key: 'chance',
+      label: '小时降水概率',
+      value: noHourly ? '无逐时' : `${Math.round(f.commuteMaxLegChance)}%`,
+    },
+    {
+      key: 'intensity',
+      label: '雨强 / 累计雨量',
+      value: noHourly
+        ? `-- · ${round1s(f.dayRainMm)} mm`
+        : `${round1s(f.commuteMaxLegMmPerHour)} mm/h · ${round1s(f.dayRainMm)} mm`,
+    },
+    { key: 'commute', label: '出门 / 回程时段', value: `${out} · ${home}` },
+    { key: 'exposure', label: '户外暴露时长', value: `单段 ${minutes} min` },
+  ]
+}
+
 // ===== 六维需求（中间态数字折在这里，只有 m/s 露到主屏） =====
 
 export const DEMAND_META: Record<DemandDim, { label: string; subtitle: string }> = {

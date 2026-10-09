@@ -12,6 +12,8 @@ import type { UmbrellaAssessment } from '@/core/types'
 const props = defineProps<{
   umbrella: UmbrellaAssessment
   commute?: { out: string | null; home: string | null }
+  /** 首屏「雨具两件事」用来标出这半边是「要带」；主屏不传 */
+  label?: string
 }>()
 
 const emit = defineEmits<{ adjust: [] }>()
@@ -48,6 +50,10 @@ const aria = computed(
       />
       <div class="copy">
         <div class="title-row">
+          <BadgePill
+            v-if="label"
+            tone="plain"
+          >{{ label }}</BadgePill>
           <b>{{ umbrellaHeadline(umbrella) }}</b>
           <BadgePill :tone="badgeTone">{{ umbrella.probability }}%</BadgePill>
         </div>

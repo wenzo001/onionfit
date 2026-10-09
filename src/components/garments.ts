@@ -42,6 +42,7 @@ export const GARMENT_ICONS: GarmentIconMeta[] = [
 
 export const MASCOT_ICON = 'of-mascot-onion'
 export const UMBRELLA_ICON = 'of-acc-umbrella'
+export const RAINCOAT_ICON = 'of-pro-raincoat'
 
 // ---------- 45 件目录条目 → 24 个图形 ----------
 // 图形只到"款型"粒度：同款型不同面料共用一个造型，靠名称区分（用户靠形状认衣服）
