@@ -48,10 +48,22 @@
 
   // 数字用等宽字形对齐，避免结论变化时跳动
   --tnum: tabular-nums;
+
+  // 底部 Tab 实高：pill 44 + 内边距 10 + 描边 6 + 外边距 16
+  --tabbar-h: 76px;
+}
+
+// 交付包基线：内边距不额外撑出尺寸（组件里大量 width:100% + padding 依赖这条）
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 html {
   -webkit-text-size-adjust: 100%;
+  // 路由切换要瞬间回顶，不能被平滑滚动动画拖着一段
+  scroll-behavior: auto;
 }
 
 body {
@@ -68,9 +80,17 @@ body {
   -webkit-touch-callout: none;
   -webkit-font-smoothing: antialiased;
   user-select: none;
-  overflow-x: hidden;
-  overscroll-behavior-y: none;
+  // clip 而不是 hidden：overflow-x:hidden 会让 overflow-y 计算成 auto，
+  // body 就此变成一个滚动容器 —— iOS 上惯性/回弹手感会变「粘」，sticky 也容易错位
+  overflow-x: clip;
+  // 这里刻意不加 overscroll-behavior-y: none —— 它会吃掉 iOS 的橡皮筋回弹，
+  // 手感立刻变得「死板」；浏览器自带的下拉刷新由 usePullToRefresh 的
+  // 非被动 touchmove + preventDefault 挡掉，不需要靠它
   touch-action: manipulation;
+}
+
+html {
+  overflow-x: clip;
 }
 
 #app {
@@ -124,6 +144,14 @@ button {
 
 input {
   font-family: inherit;
+}
+
+// 搜索框自带一个清除按钮，界面里已经画了自己的 —— 留两个会露出「网页感」
+input[type='search']::-webkit-search-cancel-button,
+input[type='search']::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
 }
 
 // 墨线描边统一 3px 纯黑，无灰阶

@@ -44,8 +44,12 @@ const activeName = computed(() => {
 @use '@/styles/tokens' as *;
 
 .tabbar {
-  position: sticky;
+  // 固定不跟随滚动（原生 TabBar 就是这个行为）：
+  // 原先是 sticky 且在文档流里，等于给每一屏都凭空加了 76px 可滚动的空白
+  position: fixed;
   bottom: 0;
+  left: 0;
+  right: 0;
   z-index: 30;
   padding: #{$sp} #{$page-pad} calc(#{$sp} + env(safe-area-inset-bottom, 0px));
   background: linear-gradient(to top, var(--paper) 62%, rgba(255, 245, 225, 0));

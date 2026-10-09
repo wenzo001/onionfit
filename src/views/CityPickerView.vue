@@ -75,48 +75,51 @@ function goBack() {
 
 <template>
   <main class="picker-page">
-    <header class="picker-header">
-      <button
-        type="button"
-        class="back-btn"
-        aria-label="返回"
-        @click="goBack"
-      >
-        <AppIcon
-          icon="fluent:chevron-left-28-regular"
-          :size="22"
-        />
-      </button>
-      <h1 class="title">选择城市</h1>
-      <div class="header-spacer" />
-    </header>
+    <!-- 搜索栏钉在顶部（iOS 选城页的行为），结果列表从它下面滚过去 -->
+    <div class="topbar">
+      <header class="picker-header">
+        <button
+          type="button"
+          class="back-btn"
+          aria-label="返回"
+          @click="goBack"
+        >
+          <AppIcon
+            icon="fluent:chevron-left-28-regular"
+            :size="22"
+          />
+        </button>
+        <h1 class="title">选择城市</h1>
+        <div class="header-spacer" />
+      </header>
 
-    <InkCard class="search-box">
-      <AppIcon
-        icon="fluent:search-24-regular"
-        :size="18"
-        class="search-icon"
-      />
-      <input
-        v-model="query"
-        type="search"
-        class="search-input"
-        placeholder="搜索城市（中文）"
-        @input="debouncedSearch"
-      />
-      <button
-        v-if="query"
-        type="button"
-        class="clear-btn"
-        aria-label="清除"
-        @click="query = ''; results = []; hasSearched = false"
-      >
+      <InkCard class="search-box">
         <AppIcon
-          icon="fluent:dismiss-circle-24-regular"
+          icon="fluent:search-24-regular"
           :size="18"
+          class="search-icon"
         />
-      </button>
-    </InkCard>
+        <input
+          v-model="query"
+          type="search"
+          class="search-input"
+          placeholder="搜索城市（中文）"
+          @input="debouncedSearch"
+        />
+        <button
+          v-if="query"
+          type="button"
+          class="clear-btn"
+          aria-label="清除"
+          @click="query = ''; results = []; hasSearched = false"
+        >
+          <AppIcon
+            icon="fluent:dismiss-circle-24-regular"
+            :size="18"
+          />
+        </button>
+      </InkCard>
+    </div>
 
     <button
       type="button"
@@ -187,8 +190,17 @@ function goBack() {
 @use '@/styles/tokens' as *;
 
 .picker-page {
-  min-height: 100vh;
-  padding: calc(env(safe-area-inset-top, 12px) + #{$sp}) #{$page-pad} calc(env(safe-area-inset-bottom, 12px) + #{$sp * 3});
+  padding: 0 #{$page-pad} calc(env(safe-area-inset-bottom, 12px) + #{$sp * 3});
+  background: var(--paper);
+}
+
+/* 钉住的搜索区：横向用负 margin 铺满，滚过去的结果列表才不会从它两侧露出来 */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  padding: calc(env(safe-area-inset-top, 0px) + #{$sp}) #{$page-pad} #{$sp};
+  margin: 0 -#{$page-pad};
   background: var(--paper);
 }
 

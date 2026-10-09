@@ -81,6 +81,8 @@ function select(option: SegmentedOption<string | number>) {
 .segmented.scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
   padding-bottom: 2px;
 
   .seg-option {

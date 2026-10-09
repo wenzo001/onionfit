@@ -104,10 +104,6 @@ const danger = computed(() => {
 <style scoped lang="scss">
 @use '@/styles/tokens' as *;
 
-.page {
-  min-height: 100vh;
-}
-
 .col {
   display: flex;
   flex-direction: column;

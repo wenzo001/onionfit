@@ -42,6 +42,9 @@ const items = computed(() => groupAccessories(props.rec.accessories, props.rec.f
   display: flex;
   gap: 10px;
   overflow-x: auto;
+  // iOS 惯性滚动：没有这条，横向配饰条会「粘手」
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
   padding-bottom: 2px;
 }
 

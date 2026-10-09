@@ -1,11 +1,13 @@
 <script setup lang="ts">
-// 应用外壳：雪碧图挂一次 + 页面切换 + 导航
-// 移动端 = 底部胶囊 Tab；桌面 ≥1180 = 左侧导航栏（屏 08 的第一栏）
-import { useRoute } from 'vue-router'
+// 应用外壳：雪碧图挂一次 + 页面切换动画 + 导航
+// 移动端 = 底部固定 Tab；桌面 ≥1180 = 左侧导航栏（屏 08 的第一栏）
+import { computed, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import SpriteSheet from '@/components/SpriteSheet.vue'
 import InkTabBar from '@/components/InkTabBar.vue'
 
 const route = useRoute()
+const router = useRouter()
 
 const NAV = [
   { name: 'day', label: '今天' },
@@ -22,11 +24,42 @@ function isActive(name: string): boolean {
   if (name === 'me') return cur === 'gallery' || cur === 'states' || cur === 'iconDay'
   return false
 }
+
+// 切换动画按「导航类型」分三种，而不是一律淡入淡出：
+// Tab 之间 = 瞬间换内容（iOS TabBar 就是这个手感，做位移动画反而像网页）；
+// 进下钻屏 = 从右推进；返回 = 原路退回。
+const transition = ref('')
+let lastPos = Number((router.options.history.state as { position?: number }).position ?? 0)
+
+// 下钻屏不显示底部 Tab（iOS 推进二级页时 TabBar 会一起退场），
+// 于是那一屏也不需要为它留 padding-bottom
+const isPush = computed(() => route.meta.kind === 'push')
+
+watch(
+  () => route.fullPath,
+  (_to, from) => {
+    // 首屏不做动画（from 为 undefined 时是初始导航）
+    if (from === undefined) {
+      lastPos = Number((router.options.history.state as { position?: number }).position ?? 0)
+      return
+    }
+    const pos = Number((router.options.history.state as { position?: number }).position ?? 0)
+    const back = pos < lastPos
+    lastPos = pos
+    const toTab = route.meta.kind === 'tab'
+    const fromTab = router.resolve(from).meta.kind === 'tab'
+    if (toTab && fromTab) transition.value = ''
+    else transition.value = back ? 'screen-back' : 'screen-forward'
+  },
+)
 </script>
 
 <template>
   <SpriteSheet />
-  <div class="shell">
+  <div
+    class="shell"
+    :class="{ 'no-tabbar': isPush }"
+  >
     <nav
       class="rail"
       aria-label="主导航"
@@ -48,17 +81,17 @@ function isActive(name: string): boolean {
 
     <main class="stage">
       <RouterView v-slot="{ Component }">
-        <Transition
-          name="page"
-          mode="out-in"
-        >
+        <Transition :name="transition">
           <component :is="Component" />
         </Transition>
       </RouterView>
     </main>
   </div>
 
-  <InkTabBar class="tabbar-mobile" />
+  <InkTabBar
+    v-if="!isPush"
+    class="tabbar-mobile"
+  />
 </template>
 
 <style scoped lang="scss">
@@ -67,8 +100,22 @@ function isActive(name: string): boolean {
 .shell {
   display: grid;
   grid-template-columns: 1fr;
+  // dvh：移动浏览器的地址栏收放会改视口高度，用 vh 会永远多出一截可滚的空白
   min-height: 100vh;
+  min-height: 100dvh;
+  // 底部 Tab 已固定，内容靠这条让开，最后一张卡不会被压住
+  padding-bottom: calc(var(--tabbar-h) + #{$sp} + env(safe-area-inset-bottom, 0px));
   background: var(--paper);
+}
+
+.stage {
+  min-width: 0;
+  position: relative;
+}
+
+/* 没有底部 Tab 的屏：只留正常的安全区余量 */
+.shell.no-tabbar {
+  padding-bottom: calc(#{$sp * 4} + env(safe-area-inset-bottom, 0px));
 }
 
 /* 移动端用底部 Tab，导航栏不出现 */
@@ -76,29 +123,45 @@ function isActive(name: string): boolean {
   display: none;
 }
 
-.stage {
-  min-width: 0;
-}
-
 .tabbar-mobile {
   display: block;
 }
 
-.page-enter-active,
-.page-leave-active {
+/* ===== 下钻屏的推进 / 退回 ===== */
+.screen-forward-enter-active,
+.screen-forward-leave-active,
+.screen-back-enter-active,
+.screen-back-leave-active {
   transition:
-    opacity 0.18s ease,
-    transform 0.18s ease;
+    transform 0.26s cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 0.26s ease;
+  will-change: transform;
 }
 
-.page-enter-from {
-  opacity: 0;
-  transform: translateY(8px);
+/* 离开的那页移出文档流：否则它一撤，document 高度瞬间塌掉，
+   浏览器会把滚动位置硬夹一下 —— 这就是「切换时滚动手感不对」的来源 */
+.screen-forward-leave-active,
+.screen-back-leave-active {
+  position: absolute;
+  inset: 0;
 }
 
-.page-leave-to {
-  opacity: 0;
-  transform: translateY(-4px);
+.screen-forward-enter-from {
+  transform: translateX(100%);
+}
+
+.screen-forward-leave-to {
+  transform: translateX(-18%);
+  opacity: 0.45;
+}
+
+.screen-back-enter-from {
+  transform: translateX(-18%);
+  opacity: 0.45;
+}
+
+.screen-back-leave-to {
+  transform: translateX(100%);
 }
 
 @media (min-width: $bp-tablet) {
@@ -168,15 +231,19 @@ function isActive(name: string): boolean {
 
     &.on {
       background: var(--orange);
-      color: #fff;
+      // 白字压橘只有 2.84，墨字 7.46
+      color: var(--ink);
     }
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .page-enter-active,
-  .page-leave-active {
-    transition: none;
+  .screen-forward-enter-active,
+  .screen-forward-leave-active,
+  .screen-back-enter-active,
+  .screen-back-leave-active {
+    transition: opacity 0.12s ease;
+    transform: none !important;
   }
 }
 </style>
