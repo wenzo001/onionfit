@@ -9,18 +9,21 @@ import InkTabBar from '@/components/InkTabBar.vue'
 const route = useRoute()
 const router = useRouter()
 
+// 桌面左栏按 deck 07 五项（洋葱结构在列，标签带「时间线 / 设置」后缀）；
+// 移动底部 Tab 另有短标签，见 InkTabBar
 const NAV = [
   { name: 'day', label: '今天' },
-  { name: 'timeline', label: '一天' },
+  { name: 'timeline', label: '一天时间线' },
   { name: 'umbrella', label: '带伞' },
-  { name: 'me', label: '我的' },
+  { name: 'onion', label: '洋葱结构' },
+  { name: 'me', label: '我的设置' },
 ] as const
 
-/** 下钻屏（洋葱结构 / 图鉴 / 状态墙）高亮留在父入口 */
+/** 下钻屏（图鉴 / 状态墙 / 图标版）高亮留在父入口；欢迎页仍在「今天」名下 */
 function isActive(name: string): boolean {
   const cur = route.name as string | undefined
   if (cur === name) return true
-  if (name === 'day') return cur === 'onion' || cur === 'welcome'
+  if (name === 'day') return cur === 'welcome'
   if (name === 'me') return cur === 'gallery' || cur === 'states' || cur === 'iconDay'
   return false
 }
