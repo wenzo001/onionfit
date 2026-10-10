@@ -43,7 +43,7 @@
 | 冷热体质 | 怕冷 / 正常 / 怕热 | 中性温度 +2.0 / 0 / −1.5℃ |
 | 活动 | 9 种（下表，界面 9 种全部可选） | 代谢、自生风、日晒暴露、雨暴露、带伞暴露时长 |
 | 风格 | 8 种可多选（日常/通勤/商务/运动/户外/街头/日系宽松/韩系清爽） | 候选择序软加分 + 风格分桶（缺省不产生排序信号） |
-| 呈现 / 版型 / 色彩 | 呈现三选（男/女/中性）/ 版型三选（修身/常规/宽松）/ 色彩四选 | 偏好分桶与候选择序（缺省不产生排序信号） |
+| 呈现 / 版型 / 色彩 | 呈现四选（男/女/中性/不指定）/ 版型三选（修身/常规/宽松）/ 色彩四选 | 偏好分桶与候选择序（缺省不产生信号）；呈现另有准入：无 UNISEX 标签的专属件只在显式选中该呈现时进池（不指定 = 只给通用件） |
 | 场合 | 6 种（日常/办公/校园/运动/户外/正式） | 风格分桶里的正式度贴合（日常为默认档，不产生信号） |
 | 暴露习惯 | 室内为主 / 短时户外 / 长时户外 | 防雨需求权重 ×0.6 / ×1 / ×1.2（"通勤窗口有雨≥40%"的下限不受它影响） |
 | 出汗 | 不易 / 一般 / 易 | 易出汗在透气需求 >30 时提前给"备用贴身衣"（理由码 `sweat-easy`） |
@@ -216,7 +216,7 @@
 
 **搜索质量的实测对照**（C13/C8）：北方寒潮产品 62.8 = 全枚举 62.8（同套件）；T6w 产品 82.8 vs 全枚举 83.1（差 0.3）；C8 的 6℃ 与 −20℃ 近似场景 beam 与全枚举同分（79.3=79.3、64.1=64.1）、贪心低一档（78.6 / 63.4），雨天场景 83.5 三方全等。beam 不是严格最优，但产品场景偏差已收敛到 ≤0.4%，第 5.2 节遗留 3 只剩"构造场景差 0.3 分"。
 
-**复用稳定性（S5-6 / S5-8）**：上一天有输出（`previousItemIds`）时，新候选整套若每个槽仍过硬条件、且两套的"合身分"（**两边都不计多样性分**，`fitPrefs` 口径）差 ≤ `reuseMargin = 3 + reuseBonus`（`reuseBonus` = 「很合适」条数 ×1 分，帽 +2）就直接沿用上一套，输出里标 `reusedPrevious`。实测：12℃→13℃ 沿用（基础分 79.7 vs 81.5，差 1.8）；12℃→−5℃ 换（缺口与硬条件都变了）；晴→雨必换壳（硬条件优先级更高）。容差阶梯（S5-8，按基础分差）：5℃→8℃ 差 ∈ (3,4]——裸比对整套换、一条「很合适」（容差 4）就沿用；12℃→15℃ 差 ∈ (4,5]——一条不够、两条（容差 5）沿用、五条仍封顶 5；「闷」×3 不放宽，同场景仍整套换。
+**复用稳定性（S5-6 / S5-8）**：上一天有输出（`previousItemIds`）时，新候选整套若每个槽仍过硬条件、且两套的"合身分"（**两边都不计多样性分**，`fitPrefs` 口径）差 ≤ `reuseMargin = 3 + reuseBonus`（`reuseBonus` = 「很合适」条数 ×1 分，帽 +2）就直接沿用上一套，输出里标 `reusedPrevious`。实测：12℃→13℃ 沿用（基础分 79.7 vs 81.5，差 1.8）；12℃→−5℃ 换（缺口与硬条件都变了）；晴→雨必换壳（硬条件优先级更高）。容差阶梯（S5-8，按基础分差，呈现准入修复后重标）：6℃→10℃ 差 ∈ (3,4]——裸比对整套换、一条「很合适」（容差 4）就沿用；12℃→15℃ 差 ∈ (4,5]——一条不够、两条（容差 5）沿用、五条仍封顶 5；5℃→8℃ 已收敛 ≤3（无反馈直接沿用，稳定性正例）；「闷」×3 不放宽，同场景仍整套换。
 
 ### 2.8 有效 clo（叠穿不等于相加）
 
@@ -331,7 +331,7 @@
 ## 3. 服装目录（内置 45 件，用户不能添加）
 
 clo 参照 ISO 9920 量级。属性：保暖 clo、防风/防水/透气/遮阳（0–1）、克重、能否脱卸、舒适温度窗。
-三点目录口径：**舒适窗下界是"叠穿体系下的可穿下限"**（可被外层罩住），不是单穿舒适下界；**外壳等级 shellGrade 只是目录元数据**，当前引擎不读取它（引擎用 water/wind 数值判定）；**第四步起每件带五类软标签**（风格/正式度/呈现/版型/色彩，curated 估算，缺失按中性回退）——只参与软排序与分桶评分，不进硬过滤。
+三点目录口径：**舒适窗下界是"叠穿体系下的可穿下限"**（可被外层罩住），不是单穿舒适下界；**外壳等级 shellGrade 只是目录元数据**，当前引擎不读取它（引擎用 water/wind 数值判定）；**第四步起每件带五类软标签**（风格/正式度/呈现/版型/色彩，curated 估算，缺失按中性回退）——只参与软排序与分桶评分，不进硬过滤；唯一例外是呈现准入（`presentationAdmissible`）：呈现标签不含 UNISEX 的专属件（当前唯一：厚裙）须显式选中该呈现才进池，"不指定"只给通用件（S4-9）。
 
 ### 3.1 贴身层·上装（10 件）
 
@@ -629,6 +629,7 @@ clo 参照 ISO 9920 量级。属性：保暖 clo、防风/防水/透气/遮阳�
 - **第三步（已完成，提交 `9d2f4af`）**：`GeoClimateContext` 与数据置信度落地——半球/季节/来源随输出（2.14 的 `geo` 字段），`coverage.confidence` 乘地理层置信度，无逐时合成曲线对齐日最低/最高与日出日落（5.1 #12）。按方案约定，沿海/海拔修正与气候带先验留到"对应气象字段缺失"的场景再启用，不凭空推断、不重复加成。
 - **第四步（已完成，提交 `1ae1ddc`）**：设置面补齐到 12 维（原人群/体质/活动/时刻之外，新增风格/呈现/版型/色彩/场合/暴露习惯/出汗/反馈历史）；偏好作为候选择序的软加分与分桶信号；评分改分项满分制（第 2.9 节）并输出 `scoreBreakdown`；反馈闭环每次 ±0.1、帽 ±0.3、可撤销，只调个人舒适目标、不动安全阈值（S4-1~S4-8 锁定；默认设置下不产生排序信号，与旧行为向后兼容）。
 - **第五步（已完成，提交 `33eee4f` / `362913e` / `db325ef` / `23257d5`）**：滞回与复用稳定性、多样性 3 分、beam 64 + 搜后精修、逐时穿着与 timeline 同源、防护维权重条件化、下装舒适窗扩至 −28℃；第五步（四）补「正合适」放宽容差与跨天沿用写回——消化遗留 1 / 2 / 3 / 5 / 6；遗留 4（雨披可达与文案口径）/ 7 / 9 部分结转。
+- **呈现准入修复（已完成，提交 `1c88a53`）**：无 UNISEX 标签的呈现专属件（当前唯一：厚裙）改为准入条件——仅显式选中该呈现才进候选池（含兜底路径、覆盖容量与跨天沿用复用判定）；「未指定」不再递性别专属款。探针矩阵 2160 场景：修复前 132 组命中、修复后 0；S4-9 锁定 4 条；S5-8 的 5→8℃ 场景据此重标定为 6→10℃（原变化驱动正是厚裙）。
 - **后续权重校准 / 目录扩充（未排期）**：消化遗留 1（7/9 硬壳集中）、3（全枚举 −0.3 残差）、4（雨披可达）、7（UV≥8 饱和）、9（9 件从未入选）与 `dayScore` 展示口径（UI 轨先约定）。
 - **UI 轨对接**（deck 实施时）：覆盖情况卡 ↔ coverage 四态、为什么是这套 ↔ `reasons` / `relaxedCodes` / `unmetNeeds`、雨具卡 ↔ `umbrella` + `rainPlan`（deck 16 已落：雨具两件事把「穿」与「带」分开渲染、共用同一组事实四格，取数走 `rainWearLine` / `rainFacts`）、状态与设置页 ↔ 缺数据态与 12 维设置、数据来源标注 ↔ `geo` + `coverage.confidence`、分数卡 ↔ `scoreBreakdown`——算法侧字段已备（2.14）。
 
@@ -649,10 +650,10 @@ clo 参照 ISO 9920 量级。属性：保暖 clo、防风/防水/透气/遮阳�
 | `src/core/engine/thermal.ts` | 逐时热状态表 |
 | `src/core/engine/safety.ts` | 安全预警（`forcedDemands` 只上调） |
 | `src/core/engine/person.ts` | 人群 / 体质 → 代谢调节与保守系数 |
-| `src/core/engine/prefs.ts` | 偏好解析（`resolvePrefs`）、反馈闭环（`applyFeedback` / `revokeLastFeedback`）、跨天沿用写回（`rollPreviousItems` / `recordShown`）与标签命中助手（第四/五步） |
+| `src/core/engine/prefs.ts` | 偏好解析（`resolvePrefs`）、反馈闭环（`applyFeedback` / `revokeLastFeedback`）、跨天沿用写回（`rollPreviousItems` / `recordShown`）、标签命中助手（第四/五步）与呈现准入（`presentationAdmissible`，S4-9） |
 | `src/core/engine/requirement.ts` | 六维需求 + 通勤雨下限（`commuteRainFloor`） |
 | `src/core/engine/layering.ts` | `planLayerSlots` 槽位规则（含 `NEED_COLD_SHELL`） |
-| `src/core/engine/matching.ts` | `matchCandidates`（反季硬过滤 + fitScore 取池） |
+| `src/core/engine/matching.ts` | `matchCandidates`（反季硬过滤 + 呈现准入 + fitScore 取池） |
 | `src/core/engine/scoring.ts` | `assembleOutfit`（beam 64 + 搜后精修 + 稳定性复用）+ `scoreDetail`（§7.3 分项满分制，含多样性）/ `computeAssembly` / `scoreAssembly` |
 | `src/core/engine/planner.ts` | `plan()` 主链 + coverage / rainPlan / nowConditions |
 | `src/core/engine/schedule.ts` | 早午晚分段 + 逐时穿脱序列与时间线（同一序列 + 滞回） |
@@ -662,7 +663,7 @@ clo 参照 ISO 9920 量级。属性：保暖 clo、防风/防水/透气/遮阳�
 
 ### A.2 测试
 
-208 条 / 14 个文件：`settings-dims.spec.ts` 30 条、`planner.p0.spec.ts` 25 条、`planner.step5.spec.ts` 24 条、`why.spec.ts` 20 条、`planner.step4.spec.ts` 16 条、`planner.step2.spec.ts` 15 条、`coverage.spec.ts` 与 `umbrella.spec.ts` 各 14 条、`rain.spec.ts` 12 条（deck 16 穿/带两侧文案与共用事实四格）、`prefs.spec.ts` 10 条、`feedback.spec.ts` 9 条、`planner.step3.spec.ts` 与 `weather.spec.ts` 各 7 条、`settings.spec.ts` 5 条（部分用例参数化展开）。改动后的门：`npx vitest run`（全量）、`npx vue-tsc -b`、`npx vite build`。
+212 条 / 15 个文件：`settings-dims.spec.ts` 30 条、`planner.p0.spec.ts` 25 条、`planner.step5.spec.ts` 24 条、`why.spec.ts` 20 条、`planner.step4.spec.ts` 16 条、`planner.step2.spec.ts` 15 条、`coverage.spec.ts` 与 `umbrella.spec.ts` 各 14 条、`rain.spec.ts` 12 条（deck 16 穿/带两侧文案与共用事实四格）、`prefs.spec.ts` 10 条、`feedback.spec.ts` 9 条、`planner.step3.spec.ts` 与 `weather.spec.ts` 各 7 条、`settings.spec.ts` 5 条、`planner.presentation.spec.ts` 4 条（呈现专属件准入，S4-9）（部分用例参数化展开）。改动后的门：`npx vitest run`（全量）、`npx vue-tsc -b`、`npx vite build`。
 
 ### A.3 探针复现
 
