@@ -4,7 +4,7 @@
 .gitattributes[FC6T]: F:整树文本规范化：* text=auto eol=lf，统一跨平台换行 | R:- | A:- | S:AOCI 以原始字节做源基线，CRLF/autocrlf 入树会让整仓判为 stale——此文件是认知基线稳定的前提
 .gitignore[FC6T]: F:忽略依赖/产物/日志/IDE/测试报告与 machine-bound 的 .mcp.json | R:- | A:- | S:aoci.txt、aoci.meta.txt、aoci.code.txt 与 AGENTS.md 是版本化认知资产，不得加入忽略，否则索引静默失效
 AGENTS.md[SG8S]: F:AOCI 仓库认知层接入合同：取认知、压缩后重载、维护边界与写入纪律 | R:- | A:- | S:上下文压缩后须以 context_compaction 为因由重取完整 Overview 并回执一次，摘要不得携带 Whole-Index 正文；写入只按机器签发 Plan/Guide，禁止自行重建流程
-README.md[SG7T]: F:项目说明与设计源约定：视觉四源同步、两处有意对比度偏离、改名清单 | R:code:src/styles/_tokens.scss,code:src/components/garmentSprite.ts,code:src/presentation/index.ts,code:src/composables/useBoundaryStates.ts | A:- | S:视觉四源必须同步改，漏一处界面与图标/文案脱节；两处对比度偏离（彩底墨字、数字深色档）是修正结果，勿回退
+README.md[SG7T]: F:项目说明与设计源约定：视觉四源同步、屏幕与信息优先级（桌面左栏五项含洋葱结构）、两处有意对比度偏离、改名清单 | R:code:src/styles/_tokens.scss,code:src/components/garmentSprite.ts,code:src/presentation/index.ts,code:src/composables/useBoundaryStates.ts | A:- | S:视觉四源必须同步改，漏一处界面与图标/文案脱节；两处对比度偏离（彩底墨字、数字深色档）是修正结果，勿回退；桌面左栏五项与 deck 7 同源。
 index.html[EG6T]: F:应用入口：viewport-fit=cover、纸底 theme-color、PWA 元信息 | R:code:public/favicon.svg | A:- | S:apple-mobile-web-app-status-bar-style 保持 default——纸底深色文字若配 black-translucent 会压进系统条带
 package.json[FV8T]: F:项目清单：dev/build/preview/test 脚本、依赖版本与 packageManager 锁定 | R:code:pnpm-lock.yaml,code:pnpm-workspace.yaml,code:.github/workflows/deploy.yml | A:- | S:packageManager 固定 pnpm@11.16.0，corepack 按此选版；build=vue-tsc -b && vite build 只做类型检查与打包，不验证结论对不对
 pnpm-lock.yaml[FV5L]: F:依赖锁定：精确解析版本与 peer 关系，随 package.json 演进 | R:code:package.json | A:- | S:由 pnpm install 维护，禁手改；settings 段同样由 pnpm 写入
@@ -27,7 +27,7 @@ umbrella-decision-brief.md[SB7M]: F:带伞判定设计输入：两段暴露窗�
 favicon.svg[ZU3T]: F:站点图标：墨底圆角块 + 三层洋葱同心弧 + 绿点 | R:code:index.html | A:- | S:-
 
 ===D:/code/OnionFit/src/===
-App.vue[EU8M]: F:应用外壳：雪碧图挂载、四入口导航、下钻推进/返回转场与 TabBar 退场 | R:code:src/components/InkTabBar.vue,code:src/components/SpriteSheet.vue,code:src/router.ts | A:- | S:转场离开页绝对定位是防文档高度塌陷致滚动夹断，别改纯淡出；状态栏留白不放 shell（钉住元素会叠两次）
+App.vue[EU8M]: F:应用外壳：雪碧图挂载、桌面五项左栏（deck 7 口径）与移动四 Tab 双导航、下钻推进/返回转场与 TabBar 退场 | R:code:src/components/InkTabBar.vue,code:src/components/SpriteSheet.vue,code:src/router.ts | A:- | S:导航标签两套：桌面左栏五项（含洋葱结构）在本文件、移动短标签在 InkTabBar，改导航两处同改；onion 由左栏自己那项高亮、欢迎页仍算「今天」；转场离开页绝对定位是防文档高度塌陷致滚动夹断，别改纯淡出；状态栏留白不放 shell（钉住元素会叠两次）。
 env.d.ts[FG4T]: F:环境类型声明：vite/client 与 vite-plugin-pwa/client 引用+*.vue 模块垫片。 | R:code:vite.config.ts,code:src/main.ts | A:- | S:两处 reference 别删：vite/client 与 pwa/client 各撑 main.ts 用到的虚拟模块类型。
 main.ts[EG5T]: F:应用装配：createApp+pinia+router 挂载 #app；引入 uno.css 与全局 SCSS；注册 PWA 更新与离线就绪处理。 | R:code:src/router.ts,code:src/App.vue,code:src/styles/main.scss,code:uno.config.ts,code:vite.config.ts | A:- | S:registerSW immediate 首屏即查更新；新版本走 confirm 确认——不要改成静默自动刷新。
 router.ts[EU6T]: F:路由表：10 条路由 + / 重定向到 day；meta.kind 区分 tab（四个主入口）与 push（下钻屏）；滚动恒回顶部。 | R:code:src/main.ts,code:src/App.vue,code:src/components/InkTabBar.vue | A:routes；scrollBehavior 恒 {left:0,top:0,behavior:'instant'} | S:scrollBehavior 刻意忽略 savedPosition（切换必须瞬间回顶）；下钻屏 meta.kind=push 由 App.vue 读取以隐藏底部 Tab。
@@ -67,7 +67,7 @@ icons.ts[CU5T]: F:本地注册的 Fluent 单色图标数据：AppIcon 以 import
 segmentedTypes.ts[CU4T]: F:分段选项类型：SegmentedOption{value,label,sub?}（SegmentedPicker 与设置页共用）。 | R:code:src/components/SegmentedPicker.vue,code:src/views/MeView.vue | A:SegmentedOption | S:-
 
 ===D:/code/OnionFit/src/composables/===
-useBoundaryStates.ts[CR6S]: F:边界状态推导：8 个会真实发生的样子（S1 离线快照/S2 数据过旧/S3 定位被拒/S4 无逐时/S5 切城中/S6 一天无变化/S8 连不上）由 store 与结论事实触发。 | R:code:src/views/DayView.vue,code:src/views/TimelineView.vue,code:src/presentation/index.ts,code:src/stores/weather.ts | A:useBoundaryStates→activeStates（weather/recommendation 入参） | S:DANGER（S7）由 SafetyAlert 单独承载、这里不重复出条；state() 对未登记 key 直接 throw（设计资产开发期暴露，不静默兜底）；文案口径与 STATE_WALL 同源。
+useBoundaryStates.ts[CR6S]: F:边界状态推导：8 个会真实发生的样子（S1 离线快照/S2 数据过旧/S3 定位被拒/S4 无逐时/S5 切城中/S6 一天无变化/S8 连不上）由 store 与结论事实触发。 | R:code:src/views/DayView.vue,code:src/views/TimelineView.vue,code:src/presentation/index.ts,code:src/stores/weather.ts | A:useBoundaryStates→activeStates（weather/recommendation 入参） | S:DANGER（S7）由 SafetyAlert 单独承载、不重复出条；state() 对未登记 key 直接 throw（开发期暴露、不兜底）；文案口径与 STATE_WALL 同源；切城横幅旧城名取 reportCityName。
 useHaptics.ts[CU4T]: F:触觉反馈工具：useVibrate pattern [10] 的轻点；当前仓库无调用方。 | R:- | A:useHaptics()→{tap} | S:iOS Safari 无 vibrate API，自动忽略（不是错误）。
 useNow.ts[CG4T]: F:共享时钟：模块级单例+30s tick，界面与计划共用同一份 now（结论随时刻自动刷新）。 | R:code:src/composables/usePlan.ts,code:src/stores/weather.ts,code:src/components/HeroCard.vue,code:src/components/LayerCard.vue | A:useNow()→now/hourOf | S:交付包 §08「结论随时刻自动刷新」的缺口靠这份 30s tick 闭环。
 usePlan.ts[AB7T]: F:planner 结论接入界面：跨天先抬升上一套再算、输出侧记录本轮展示；planAs(activity) 本地重算。 | R:code:src/core/engine/planner.ts,code:src/core/engine/prefs.ts,code:src/composables/useNow.ts | A:usePlan()→recommendation/planAs/now/planDate（另透 weather/settings） | S:两处写回都靠幂等终止（抬升：再算必 null；recordShown：同日同套 null）——去掉幂等会形成写循环；immediate 保证挂载即写回。
@@ -128,7 +128,7 @@ weatherService.ts[IR6T]: F:天气服务：调 provider 拉取；失败但有缓�
 
 ===D:/code/OnionFit/src/stores/===
 settings.ts[CD7S]: F:用户设置 store（12 维）：localStorage 单点读写、首启迁移旧快照、isOnboarded 标记；空时间串归一 null。 | R:code:src/data/snapshot.ts,code:src/composables/usePlan.ts,code:src/stores/weather.ts,code:src/views/WelcomeView.vue,code:src/views/DayView.vue | A:settings/profile/sensitivity/activity/outTime/homeTime/isOnboarded/hasSchedule；set/apply/replace/clearSchedule/completeOnboarding | S:settings 必须整对象透传——曾只透传 5 个维度被静默剥掉；outTime 空串归一为 null。
-weather.ts[CD8S]: F:天气 store：城市+快照+加载态+错误+定位来源；refresh/selectCity/ensureData/bootstrap；快照持久化。 | R:code:src/data/snapshot.ts,code:src/services/weatherService.ts,code:src/stores/settings.ts,code:src/composables/usePlan.ts,code:src/composables/useBoundaryStates.ts,code:src/views/CityPickerView.vue | A:city/report/loading/error/stale/minutesAgo/locationSource/cityMismatch/isStale；refresh/selectCity/ensureData/bootstrap/persist | S:切城是乐观更新：城市先切、旧天气保留，cityMismatch 阈 0.01° 驱动「切城中」过渡态。
+weather.ts[CD8S]: F:天气 store：城市+快照+加载态+错误+定位来源；refresh/selectCity/ensureData/bootstrap；快照持久化。 | R:code:src/data/snapshot.ts,code:src/services/weatherService.ts,code:src/stores/settings.ts,code:src/composables/usePlan.ts,code:src/composables/useBoundaryStates.ts,code:src/views/CityPickerView.vue | A:city/report/reportCityName/loading/error/stale/minutesAgo/locationSource/cityMismatch/isStale；refresh/selectCity/ensureData/bootstrap/persist | S:切城是乐观更新：城市先切、旧天气保留，cityMismatch 阈 0.01° 驱动「切城中」过渡态；reportCityName 记录当前 report 归属城市（仅刷新成功更新、stale 降级保留旧归属），切城横幅据此说真名不说「上一座」。
 
 ===D:/code/OnionFit/src/styles/===
 _tokens.scss[CU8S]: F:设计令牌：色板/层角色底色/需求维度配色/形状/排版/间距/断点；与设计交付包 §01 一一对应，是唯一视觉来源。 | R:code:src/styles/main.scss | A:$paper/$ink/$card/$orange/$blue/$mint 色板；$demand-colors/$demand-ink；$layer-bg/$layer-label；$radius/$shadow/$bp-* 断点 | S:warn-deep 与 demand-ink 是刻意加深的对比度偏离（彩底墨字、数字深色档）——别按色板原色改回。
