@@ -13,6 +13,7 @@ import {
   colorFit,
   formalityFit,
   neutralPrefs,
+  presentationAdmissible,
   presentationFit,
   silhouetteFit,
   styleHit,
@@ -194,7 +195,11 @@ function reuseIfStable(
   const items: ClothingItem[] = []
   for (let i = 0; i < slots.length; i++) {
     const it = prevItems.find(
-      (x) => !used.has(x.id) && poolIds[i].has(x.id) && slotHardSatisfied(x, slots[i], need),
+      (x) =>
+        !used.has(x.id) &&
+        poolIds[i].has(x.id) &&
+        presentationAdmissible(x, prefs.presentation) &&
+        slotHardSatisfied(x, slots[i], need),
     )
     if (!it) return null
     used.add(it.id)

@@ -243,16 +243,17 @@ describe('S5-6 稳定性：天气小波动沿用旧组合，大变化和雨天�
 })
 
 describe('S5-8「很合适」反馈放宽容差（方案 §6.1）：小步、封顶，其余反馈不放宽', () => {
-  // 探针实测（A4 场景扫描，基础分口径）：5→8℃ 差 ∈ (3,4]；12→15℃ 差 ∈ (4,5]
+  // 探针实测（呈现准入修复后重标）：6→10℃ 差 ∈ (3,4]；12→15℃ 差 ∈ (4,5]。
+  // 5→8℃ 已收敛 ≤3——无反馈直接沿用（稳定性的正例，见 S4-9 呈现准入）
   const jr = (n: number) =>
     Array.from({ length: n }, (_, i) => ({ kind: 'JUST_RIGHT' as const, at: `2026-09-2${i}` }))
 
-  it('5→8℃：没反馈整套换；一条「很合适」就沿用（+1 分容差）', () => {
-    const ids = chosenIds(planAt({ mean: 5, amp: 4, windMs: 2 }))
-    const fresh = planAt({ mean: 8, amp: 4, windMs: 2 }, { previousItemIds: ids })
+  it('6→10℃：没反馈整套换；一条「很合适」就沿用（+1 分容差）', () => {
+    const ids = chosenIds(planAt({ mean: 6, amp: 4, windMs: 2 }))
+    const fresh = planAt({ mean: 10, amp: 4, windMs: 2 }, { previousItemIds: ids })
     expect(chosenIds(fresh)).not.toEqual(ids)
     expect(fresh.reusedPrevious).toBe(false)
-    const loved = planAt({ mean: 8, amp: 4, windMs: 2 }, { previousItemIds: ids, feedbackHistory: jr(1) })
+    const loved = planAt({ mean: 10, amp: 4, windMs: 2 }, { previousItemIds: ids, feedbackHistory: jr(1) })
     expect(chosenIds(loved)).toEqual(ids)
     expect(loved.reusedPrevious).toBe(true)
   })
@@ -270,10 +271,10 @@ describe('S5-8「很合适」反馈放宽容差（方案 §6.1）：小步、封
     ).toEqual(ids)
   })
 
-  it('闷反馈不动容差：同样 5→8℃，STUFFY×3 仍整套换', () => {
-    const ids = chosenIds(planAt({ mean: 5, amp: 4, windMs: 2 }))
+  it('闷反馈不动容差：同样 6→10℃，STUFFY×3 仍整套换', () => {
+    const ids = chosenIds(planAt({ mean: 6, amp: 4, windMs: 2 }))
     const stuffy = Array.from({ length: 3 }, (_, i) => ({ kind: 'STUFFY' as const, at: `2026-09-2${i}` }))
-    const r = planAt({ mean: 8, amp: 4, windMs: 2 }, { previousItemIds: ids, feedbackHistory: stuffy })
+    const r = planAt({ mean: 10, amp: 4, windMs: 2 }, { previousItemIds: ids, feedbackHistory: stuffy })
     expect(chosenIds(r)).not.toEqual(ids)
     expect(r.reusedPrevious).toBe(false)
   })

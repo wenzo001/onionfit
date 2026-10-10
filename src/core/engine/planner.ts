@@ -27,7 +27,7 @@ import { applyWearing, buildDayParts, buildTimeline, buildWearingSeries, wearing
 import { accessoriesOf } from './accessories'
 import { assessUmbrella } from './umbrella'
 import { planExposure, summarizeExposure, type ExposureFacts } from './exposure'
-import { resolvePrefs, rainExposureFactor } from './prefs'
+import { resolvePrefs, rainExposureFactor, type ResolvedPrefs } from './prefs'
 import { round1 } from './psychrometrics'
 import { COVERAGE, DATA_QUALITY, DEMAND, SAFETY, THERMAL } from '../config'
 
@@ -151,7 +151,7 @@ export function plan({ report, settings, now = new Date() }: PlanInput): OutfitR
     coverage: buildCoverage(
       need.requiredClo,
       dayOutfit.effectiveClo,
-      capacityFor(slots, need),
+      capacityFor(slots, need, prefs),
       ctx.hasHourly,
       relaxedCodes,
       geo.confidence,
@@ -173,9 +173,9 @@ function radiationGainAt(ctx: WeatherContext, hour: number): number {
   return Math.min(rad * THERMAL.radiantGainCoeff, THERMAL.radiantGainMaxK)
 }
 
-/** 同样的槽位结构，库里最多能凑到多少有效保暖 */
-function capacityFor(slots: LayerSlot[], need: EnsembleNeed): number {
-  const pairs = capacityCandidates(slots, need)
+/** 同样的槽位结构，库里最多能凑到多少有效保暖（按该用户可穿的件算：呈现专属件不放行时不计入） */
+function capacityFor(slots: LayerSlot[], need: EnsembleNeed, prefs: ResolvedPrefs): number {
+  const pairs = capacityCandidates(slots, need, prefs)
   if (!pairs.length) return 0
   return computeAssembly(
     pairs.map((p) => p.item),

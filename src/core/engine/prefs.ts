@@ -177,6 +177,18 @@ export function presentationFit(it: ClothingItem, pref: Presentation): number {
   return credit(it.presentation, pref, 'UNISEX')
 }
 
+/**
+ * 呈现准入：带 UNISEX 的件人人可穿；只带单一呈现标签的件（如厚裙）须显式选中该呈现才进候选池。
+ * 「不指定」不等于「随便穿」—— 性别专属款要用户自己说要（与软打分无关，这是进池条件）。
+ */
+export function presentationAdmissible(it: ClothingItem, pref: Presentation): boolean {
+  const tags = it.presentation
+  if (!tags?.length) return true
+  if (tags.includes('UNISEX')) return true
+  if (pref === 'MASCULINE' || pref === 'FEMININE') return tags.includes(pref)
+  return false
+}
+
 function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v))
 }

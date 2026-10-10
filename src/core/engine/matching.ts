@@ -9,6 +9,7 @@ import type { EnsembleNeed, LayerSlot } from './layering'
 import {
   colorFit,
   neutralPrefs,
+  presentationAdmissible,
   presentationFit,
   silhouetteFit,
   styleHit,
@@ -51,9 +52,10 @@ export function withinComfortFit(it: ClothingItem, slot: LayerSlot, need: Ensemb
   )
 }
 
-/** 过得了槽位硬过滤的候选（评分之前的一层准入） */
-function eligibleFor(slot: LayerSlot, need: EnsembleNeed): ClothingItem[] {
+/** 过得了槽位硬过滤的候选（评分之前的一层准入）；呈现专属件在此一并挡掉 */
+function eligibleFor(slot: LayerSlot, need: EnsembleNeed, prefs: ResolvedPrefs): ClothingItem[] {
   return poolForSlot(slot).filter((it) => {
+    if (!presentationAdmissible(it, prefs.presentation)) return false
     if (it.insulationClo < slot.minClo) return false
     if (slot.needWater && it.water < 0.85) return false
     if (slot.needWind && it.wind < 0.6) return false
@@ -71,11 +73,12 @@ function eligibleFor(slot: LayerSlot, need: EnsembleNeed): ClothingItem[] {
 export function capacityCandidates(
   slots: LayerSlot[],
   need: EnsembleNeed,
+  prefs: ResolvedPrefs = neutralPrefs(),
 ): { item: ClothingItem; role: LayerRole }[] {
   const used = new Set<string>()
   const chosen: { item: ClothingItem; role: LayerRole }[] = []
   for (const slot of slots) {
-    const pool = eligibleFor(slot, need).filter((it) => !used.has(it.id))
+    const pool = eligibleFor(slot, need, prefs).filter((it) => !used.has(it.id))
     if (!pool.length) continue
     const best = pool.reduce((a, b) => (b.insulationClo > a.insulationClo ? b : a))
     chosen.push({ item: best, role: slot.role })
@@ -99,9 +102,10 @@ function pickForSlot(
   need: EnsembleNeed,
   prefs: ResolvedPrefs,
 ): ClothingItem[] {
-  const eligible = eligibleFor(slot, need)
+  const eligible = eligibleFor(slot, need, prefs)
   // 合格池为空：退回角色 + 品类原始池做"尽力而为"，按离设计时刻最近排序，
-  // 让极寒场景兜底的是最接近的一件（发热保暖裤），而不是拟合分恰好高的短打或裙装
+  // 让极寒场景兜底的是最接近的一件（发热保暖裤），而不是拟合分恰好高的短打或裙装；
+  // 呈现专属件在兜底路径同样不放行（不指定时不递厚裙）
   const picked = eligible.length
     ? eligible
         .map((it) => ({ it, score: fitScore(it, slot, demand, need, prefs) }))
@@ -109,6 +113,7 @@ function pickForSlot(
         .slice(0, MATCHING.poolPerSlot)
         .map((r) => r.it)
     : [...poolForSlot(slot)]
+        .filter((it) => presentationAdmissible(it, prefs.presentation))
         .sort(
           (a, b) =>
             comfortDistance(a, need.designHourTempC) - comfortDistance(b, need.designHourTempC) ||
