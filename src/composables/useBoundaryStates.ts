@@ -38,7 +38,7 @@ export function useBoundaryStates(
       out.push(
         state('CITY_SWITCHING', {
           title: `正在切到${weather.city.name}…`,
-          body: '上面还是上一座的天气，别急着出门',
+          body: `上面还是${weather.reportCityName ?? '上一座'}的天气，别急着出门`,
           scope: 'day',
         }),
       )

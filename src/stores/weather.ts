@@ -27,6 +27,8 @@ export const useWeatherStore = defineStore('weather', () => {
 
   const city = ref<CityInfo>(saved.city)
   const report = ref<WeatherReport | null>(saved.weather)
+  /** 当前 report 属于哪座城市：过渡态横幅要说得具体（上面还是上海的天气），不泛称「上一座」 */
+  const reportCityName = ref<string | null>(saved.weather ? saved.city.name : null)
   const loading = ref(false)
   const refreshing = ref(false)
   const error = ref<string | null>(null)
@@ -86,6 +88,8 @@ export const useWeatherStore = defineStore('weather', () => {
     try {
       const result = await service.fetchOrCached(city.value.lat, city.value.lon, report.value)
       report.value = result.report
+      // stale 降级时 report 还是旧城的缓存，归属名保持不变
+      if (!result.stale) reportCityName.value = city.value.name
       stale.value = result.stale
       sourceLabel.value = result.sourceLabel
       lastFetchedAt.value = result.stale && report.value ? fromMinutesAgo(result.minutesAgo) : new Date()
@@ -129,6 +133,7 @@ export const useWeatherStore = defineStore('weather', () => {
   return {
     city,
     report,
+    reportCityName,
     loading,
     refreshing,
     error,
