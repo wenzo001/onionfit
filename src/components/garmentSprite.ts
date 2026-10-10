@@ -138,14 +138,32 @@ export const GARMENT_SPRITE = `
 </symbol>
 
 <symbol id="of-mascot-onion" viewBox="0 0 140 160">
-  <path d="M70 34C70 19 61 9 46 5c4 17 10 25 15 29z" fill="#00C2A8" stroke="#000000" stroke-width="5" stroke-linejoin="round"/>
-  <path d="M70 34c0-17 11-27 26-29-6 17-14 25-19 30z" fill="#00C2A8" stroke="#000000" stroke-width="5" stroke-linejoin="round"/>
-  <path d="M70 30c31 0 50 33 50 63 0 31-23 50-50 50s-50-19-50-50c0-30 19-63 50-63z" fill="#FFD98A" stroke="#000000" stroke-width="6" stroke-linejoin="round"/>
-  <path d="M70 33C58 51 52 72 52 93c0 22 6 39 12 47" ${N} style="stroke-width:var(--sw,3.5)" opacity="0.22"/>
-  <path d="M70 33c12 18 18 39 18 60 0 22-6 39-12 47" ${N} style="stroke-width:var(--sw,3.5)" opacity="0.22"/>
-  <ellipse cx="51" cy="88" rx="6.5" ry="8.5" fill="#000000"/><ellipse cx="89" cy="88" rx="6.5" ry="8.5" fill="#000000"/>
-  <circle cx="53.5" cy="85" r="2.2" fill="#FFFFFF"/><circle cx="91.5" cy="85" r="2.2" fill="#FFFFFF"/>
-  <ellipse cx="37" cy="102" rx="9" ry="5.5" fill="#FF4D8D" opacity="0.8"/><ellipse cx="103" cy="102" rx="9" ry="5.5" fill="#FF4D8D" opacity="0.8"/>
-  <path d="M59 105q11 11 22 0" ${N} stroke-width="5" stroke-linecap="round"/>
+  <g stroke="#000000" stroke-width="3.2" stroke-linecap="round" fill="none">
+  <path d="M43 146c-3 3-6 6-7 9"/><path d="M53 150c-2 3-3 5-3 8"/>
+  <path d="M87 150c2 3 3 5 3 8"/><path d="M97 146c3 3 6 6 7 9"/>
+  </g>
+  <g stroke="#00C2A8" stroke-width="5.5" stroke-linecap="round" fill="none">
+  <path d="M72 32C63 23 52 15 42 13C38.6 12.7 37 13.8 36 16"/>
+  <path d="M72 32C81 20 92 12 102 11"/>
+  </g>
+  <path d="M72 30C64 32 57 40 54 54C47 76 28 91 22 112C15 133 34 152 70 152C106 152 125 133 118 112C112 91 92 76 85 54C82 40 75 32 72 30Z" fill="#EAD6A2" stroke="#000000" stroke-width="7.5" stroke-linejoin="round"/>
+  <g stroke="#D9B878" stroke-width="3.6" stroke-linecap="round" fill="none" opacity="0.8">
+  <path d="M60 46C56 70 60 100 56 138"/><path d="M70 42C67 70 71 102 68 142"/>
+  <path d="M80 44C78 70 82 100 78 140"/><path d="M90 52C89 76 92 102 90 136"/>
+  </g>
+  <path d="M60 52C64 41 68 36 72 36C76 36 80 41 84 52" fill="none" stroke="#000000" stroke-width="3.8" stroke-linecap="round"/>
+  <path d="M60 56C53 66 46 80 40 92C35 105 29 116 26 126" fill="none" stroke="#000000" stroke-width="3.4" stroke-linecap="round"/>
+  <path d="M59 52C63 31 74 21 85 26C91 29 93 34 91 39" fill="none" stroke="#000000" stroke-width="5" stroke-linecap="round"/>
+  <path d="M91 39C96 31 102 25 107 20" fill="none" stroke="#000000" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="M105 22C108 16 113 11 118 9C117 14 113 19 108 24Z" fill="#000000"/>
+  <ellipse cx="40" cy="102" rx="10" ry="6.5" fill="#FF7A9E"/>
+  <ellipse cx="47" cy="110" rx="8.5" ry="5.2" fill="rgba(0,0,0,0.45)"/>
+  <ellipse cx="100" cy="102" rx="10" ry="6.5" fill="#FF7A9E"/>
+  <ellipse cx="93" cy="110" rx="8.5" ry="5.2" fill="rgba(0,0,0,0.45)"/>
+  <circle cx="52" cy="89" r="8.5" fill="#000000"/><circle cx="59.5" cy="97" r="6.5" fill="#000000"/>
+  <circle cx="88" cy="89" r="8.5" fill="#000000"/><circle cx="80.5" cy="97" r="6.5" fill="#000000"/>
+  <circle cx="49" cy="86" r="2.4" fill="#FFFFFF"/><circle cx="85" cy="86" r="2.4" fill="#FFFFFF"/>
+  <path d="M55 112C54 108 55 105 57 104C60 110 66 113 71 112.5C76 112 81 109 84 103" fill="none" stroke="#000000" stroke-width="5" stroke-linecap="round"/>
+  <path d="M63 116.5C68 118.5 74 118 78 115" fill="none" stroke="#000000" stroke-width="2.8" stroke-linecap="round"/>
 </symbol>
 `
